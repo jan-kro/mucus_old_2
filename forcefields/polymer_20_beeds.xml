@@ -1,0 +1,81 @@
+<ForceField>
+	<AtomTypes>
+		<Type name="0" class="CA" element="C" mass="12.01078"/>
+	</AtomTypes>
+	<Residues>
+		<Residue name="HET">
+			<Atom name="1" type="0"/>
+			<Atom name="2" type="0"/>
+			<Atom name="3" type="0"/>
+			<Atom name="4" type="0"/>
+			<Atom name="5" type="0"/>
+			<Atom name="6" type="0"/>
+			<Atom name="7" type="0"/>
+			<Atom name="8" type="0"/>
+			<Atom name="9" type="0"/>
+			<Atom name="10" type="0"/>
+			<Atom name="11" type="0"/>
+			<Atom name="12" type="0"/>
+			<Atom name="13" type="0"/>
+			<Atom name="14" type="0"/>
+			<Atom name="15" type="0"/>
+			<Atom name="16" type="0"/>
+			<Atom name="17" type="0"/>
+			<Atom name="18" type="0"/>
+			<Atom name="19" type="0"/>
+			<Atom name="20" type="0"/>
+			<Bond atomName1="1" atomName2="2"/>
+			<Bond atomName1="2" atomName2="1"/>
+			<Bond atomName1="2" atomName2="3"/>
+			<Bond atomName1="3" atomName2="2"/>
+			<Bond atomName1="3" atomName2="4"/>
+			<Bond atomName1="4" atomName2="3"/>
+			<Bond atomName1="4" atomName2="5"/>
+			<Bond atomName1="5" atomName2="4"/>
+			<Bond atomName1="5" atomName2="6"/>
+			<Bond atomName1="6" atomName2="5"/>
+			<Bond atomName1="6" atomName2="7"/>
+			<Bond atomName1="7" atomName2="6"/>
+			<Bond atomName1="7" atomName2="8"/>
+			<Bond atomName1="8" atomName2="7"/>
+			<Bond atomName1="8" atomName2="9"/>
+			<Bond atomName1="9" atomName2="8"/>
+			<Bond atomName1="9" atomName2="10"/>
+			<Bond atomName1="10" atomName2="9"/>
+			<Bond atomName1="10" atomName2="11"/>
+			<Bond atomName1="11" atomName2="10"/>
+			<Bond atomName1="11" atomName2="12"/>
+			<Bond atomName1="12" atomName2="11"/>
+			<Bond atomName1="12" atomName2="13"/>
+			<Bond atomName1="13" atomName2="12"/>
+			<Bond atomName1="13" atomName2="14"/>
+			<Bond atomName1="14" atomName2="13"/>
+			<Bond atomName1="14" atomName2="15"/>
+			<Bond atomName1="15" atomName2="14"/>
+			<Bond atomName1="15" atomName2="16"/>
+			<Bond atomName1="16" atomName2="15"/>
+			<Bond atomName1="16" atomName2="17"/>
+			<Bond atomName1="17" atomName2="16"/>
+			<Bond atomName1="17" atomName2="18"/>
+			<Bond atomName1="18" atomName2="17"/>
+			<Bond atomName1="18" atomName2="19"/>
+			<Bond atomName1="19" atomName2="18"/>
+			<Bond atomName1="19" atomName2="20"/>
+			<Bond atomName1="20" atomName2="19"/>
+		</Residue>
+	</Residues>
+	<CustomBondForce energy="K*(r-r0)^2">
+		<GlobalParameter name="K" defaultValue="100"/>
+		<GlobalParameter name="r0" defaultValue="2"/>
+		<Bond class1="CA" class2="CA"/>
+	</CustomBondForce>
+	<CustomNonbondedForce energy="q^2*lB*exp(r)/r" bondCutoff="4">
+		<GlobalParameter name="lB" defaultValue="4"/>
+		<GlobalParameter name="q" defaultValue="1"/>
+		<Atom type="0"/>
+	</CustomNonbondedForce>
+	<CustomNonbondedForce energy="epsilon*(2^12/r^12 - 2^7/r^6 + 1)" bondCutoff="2">
+		<GlobalParameter name="epsilon" defaultValue="1"/>
+		<Atom type="0"/>
+	</CustomNonbondedForce>
+</ForceField>
