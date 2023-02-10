@@ -1,64 +1,98 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import mdtraj as md
-import tidynamics as tid
-import os
-from copy import deepcopy
-
-
 class Polymer:
     
     def __init__(self,
-                 n_beeds: int = 10,
-                 r_beed: float = 1.0,
-                 q_beed: float = 2.08,
-                 bonds: list = None,
-                 mobility: float = 0.002,
-                 force_constant_nn: float = 100.0,
-                 epsilon_LJ: float = 0.25,
-                 sigma_LJ: float = 2.0,
-                 lB_debye: float = 3.077,
-                 c_S: float = 10,
-                 cutoff_debye: float = 4.0,
-                 pbc: bool = True,
-                 cwd: str = "/home/jan/Documents/masterthesis/project/mucus"):
+                 n_beeds:           int     = 10,
+                 r_beed:            float   = 1.0,
+                 q_beed:            float   = 2.08,
+                 bonds:             list    = None,
+                 mobility:          float   = 0.002,
+                 force_constant_nn: float   = 100.0,
+                 epsilon_LJ:        float   = 0.25,
+                 sigma_LJ:          float   = 2.0,
+                 cutoff_LJ:         float   = 2.0,
+                 lB_debye:          float   = 3.077,
+                 c_S:               float   = 10,
+                 cutoff_debye:      float   = 4.0,
+                 pbc:               bool    = True,
+                 box_length:        float   = None,
+                 cwd:               str     = "/home/jan/Documents/masterthesis/project/mucus"):
     
-        self.n_beeds = n_beeds
-        self.r_beed = r_beed
-        self.q_beed = q_beed
-        self.mobility = mobility
-        self.force_constant_nn = force_constant_nn
-        self.epsilon_LJ = epsilon_LJ
-        self.sigma_LJ = sigma_LJ
-        self.lB_debye = lB_debye # units of beed radii
-        self.c_S = c_S # salt concentration [c_S] = mM
-        self.cutoff_debye = cutoff_debye
-        self.pbc = pbc
-        self.bonds = bonds
-        self.cwd = cwd       
+        self.n_beeds            = n_beeds
+        self.r_beed             = r_beed
+        self.q_beed             = q_beed
+        self.mobility           = mobility
+        self.force_constant_nn  = force_constant_nn
+        self.epsilon_LJ         = epsilon_LJ
+        self.sigma_LJ           = sigma_LJ
+        self.cutoff_LJ          = cutoff_LJ
+        self.lB_debye           = lB_debye # units of beed radii
+        self.c_S                = c_S # salt concentration [c_S] = mM
+        self.cutoff_debye       = cutoff_debye
+        self.cutoff_pbc         = cutoff_debye # NOTE here the debye cutoff is used since it is the force with the longest range
+        self.pbc                = pbc
+        self.bonds              = bonds
+        self.cwd                = cwd       
         
-        self.r0_beeds = 2*r_beed
-        self.box_length = 2*r_beed*n_beeds*1.5 # make box length 1.5 times chain length (arbitrary)
-        self.A_debye = self.q_beed**2*self.lB_debye
-        self.B_debye = 1/(r_beed*38.46153*self.c_S) # 1/(debye screening length) in units of beed radius
+        self.r0_beeds           = 2*r_beed
+        self.A_debye            = self.q_beed**2*self.lB_debye
+        self.B_debye            = 1/(r_beed*38.46153*self.c_S) # 1/(debye screening length) in units of beed radius
+    
+    # TODO is there a better way to do this??
+        if box_length is None:
+            self.box_length = 4*r_beed*n_beeds  # make box length 2 times chain length (arbitrary)
+        else:
+            self.box_length = box_length
 
-    # TODO: make all variables none and initialize in methods
+        # array that shifts box for pbc
+        self.shifts = np.array(((self.box_length,   0,                0),
+                                (0,                 self.box_length,  0),
+                                (0,            0,                     self.box_length),
+                                (self.box_length,   self.box_length,  0),
+                                (self.box_length,   0,                self.box_length),
+                                (0,                 self.box_length,  self.box_length),
+                                (self.box_length,   self.box_length,  self.box_length),
+                                (-self.box_length,  0,                0),
+                                (0,                -self.box_length,  0),
+                                (0,            0,                    -self.box_length),
+                                (-self.box_length,  self.box_length,  0),
+                                (-self.box_length,  0,                self.box_length),
+                                (0,                -self.box_length,  self.box_length),
+                                (self.box_length,  -self.box_length,  0),
+                                (self.box_length,   0,               -self.box_length),
+                                (0,                 self.box_length, -self.box_length),
+                                (-self.box_length, -self.box_length,  0),
+                                (-self.box_length,  0,               -self.box_length),
+                                (0,                -self.box_length, -self.box_length),
+                                (-self.box_length,  self.box_length,  self.box_length),
+                                (self.box_length,  -self.box_length,  self.box_length),
+                                (self.box_length,   self.box_length, -self.box_length),
+                                (-self.box_length, -self.box_length,  self.box_length),
+                                (-self.box_length,  self.box_length, -self.box_length),
+                                (self.box_length,  -self.box_length, -self.box_length),
+                                (-self.box_length, -self.box_length, -self.box_length)))    
+            
         
-        self.positions = None
-        self.positions_new = np.zeros((n_beeds, 3))
-        self.velocities = np.zeros((n_beeds, 3))
-        self.forces = np.zeros((n_beeds, 3))
-        self.energy = 0
-        self.trajectory = np.zeros((1, n_beeds, 3)) # first dim is the frame
-        self.distances_bonded = list(())
-        self.directions_bonded = list(())
-        self.distances = list(())
-        self.directions = list(())
-        self.cm_trajectory = None
-        self.msd = None
-    
+    # TODO: make all variables "None" and initialize in methods
+        
+        self.positions              = None
+        self.positions_new          = np.zeros((n_beeds, 3))
+        self.velocities             = np.zeros((n_beeds, 3))
+        self.forces                 = np.zeros((n_beeds, 3))
+        self.energy                 = 0
+        self.trajectory             = np.zeros((1, n_beeds, 3)) # first dim is the frame
+        self.distances_bonded       = list(())
+        self.directions_bonded      = list(())
+        self.distances              = None
+        self.directions             = None
+        self.cm_trajectory          = None
+        self.msd                    = None
+        self.structure_factor       = None
+        self.indices                = None
+        self.idx_table              = None
+        self.idx_interactions       = None
+        
+        
     # TODO: redo the get_bonds() method so that every bond pair only exists once
-    
     
     def create_chain(self, 
                      axis: int = 0):
@@ -78,17 +112,31 @@ class Polymer:
         #center chain around 0
         if self.n_beeds != 1:
             self.positions[:, axis] -= self.r0_beeds*(self.n_beeds-1)/2
+        
+        # create index list
+        self.indices = np.arange(self.n_beeds)
+        
+        # create nxn index table 
+        self.idx_table = np.zeros((2, self.n_beeds, self.n_beeds), dtype=int)
+        for i in range(self.n_beeds):
+            for j in range(self.n_beeds):
+                self.idx_table[0, i, j] = i
+                self.idx_table[1, i, j] = j
 
+        self.positions += np.array((self.box_length/2, self.box_length/2, self.box_length/2)) 
+        
         # set first trajecory frame to initial position
         self.trajectory[0,:,:] = deepcopy(self.positions)
         
+        self.apply_pbc()
         self.get_bonds()
         
         return
     
     def create_test_chain(self, 
                           sigma: float = 0.05, 
-                          axis: int = 0):
+                          axis: int = 0,
+                          centered = False):
         """
         Create linear chain along specified axis, centered in the origin.
         The positions of the linear chain are deviated wit a gaussian noise 
@@ -99,6 +147,10 @@ class Polymer:
             sigma (float): standard deviation for the displacement
             axis (int): specify on which axis the chain lies on (0,1,2) -> (x,y,z)
         """
+        if centered == True:
+            axis = 0
+        
+        self.positions = np.zeros((self.n_beeds, 3))
         
         for k in range(self.n_beeds):
             self.positions[k, axis] = k*self.r0_beeds
@@ -107,12 +159,29 @@ class Polymer:
         if self.n_beeds != 1:
             self.positions[:, axis] -= self.r0_beeds*(self.n_beeds-1)/2
         
+        if centered == True:   
+            self.positions += np.array((self.box_length/2, self.box_length/2, self.box_length/2))
+        else:
+            self.positions[:, 1] += self.box_length/2
+            self.positions[:, 2] += self.box_length/2
+        
+        # create index list
+        self.indices = np.arange(self.n_beeds)
+        
+        # create nxn index table 
+        self.idx_table = np.zeros((2, self.n_beeds, self.n_beeds), dtype=int)
+        for i in range(self.n_beeds):
+            for j in range(self.n_beeds):
+                self.idx_table[0, i, j] = i
+                self.idx_table[1, i, j] = j
+        
         # to test forces
         self.positions += np.random.randn(self.n_beeds, 3)*sigma
 
         # set first trajecory frame to initial position
         self.trajectory[0,:,:] = deepcopy(self.positions)
         
+        self.apply_pbc()
         self.get_bonds()
         
         return
@@ -141,37 +210,143 @@ class Polymer:
     
     def get_distances_directions(self):
         """
-        Get distances and directions for every bond, saved in the self.bond list
+        Get distances and directions for every combination of atom within a certain cutoff distance to each other.
         The directions are not normalized, since the normalization happens in the forcefiled calculation.
+        A list of index tuples is also calculated to assign the interactions to the specific atoms.
         """
-        # TODO: CHANGE THIS SO ALL DISTANCES ARE CALCULATED ONCE AND BONDED ONES ARE INDEXED BY BONDS
-        # meaning that the distances dont have to be calculated for every force
         
-        self.distances_bonded = list(()) # reset
-        self.directions_bonded = list(()) 
-        # TODO: remove double calculation
-        for bond in self.bonds:
-            
-            r_vec = self.positions[bond[1]] - self.positions[bond[0]]
-            r = np.sqrt(np.dot(r_vec, r_vec))
-            #r = np.linalg.norm(r_vec)
-            
-            self.distances_bonded.append(r)
-            self.directions_bonded.append(r_vec/r)
+        directions, distances, idx_table = self.dist_dir_box()
         
-        self.distances_bonded = np.array(self.distances_bonded)
-        self.directions_bonded = np.array(self.directions_bonded)
+        # calculate dist dir for box edge w.r.t. cutoff
+        directions_edges, distances_edges, idx_table_edges = self.dist_dir_edges()
+
+        # check if there are edge interactions
+        if idx_table_edges.size == 0:
+            # if there are no edge interactions only use the values of the box
+            self.directions = deepcopy(directions)
+            self.distances = deepcopy(distances)
+            self.idx_interactions = idx_table.T
+        else:
+            # combine dist/dir to one list
+            self.directions = np.append(directions, directions_edges, axis=0)
+            self.distances = np.append(distances, distances_edges, axis=0)
+            self.idx_interactions = np.append(idx_table, idx_table_edges, axis=1).T
+        
         
         return
+    
+    def dist_dir_edges(self):
+        """
+        This uses the concept of the "inner-" and "outer edge". Particles are defined to lie in the inner edge, 
+        when thethey are inside the box within the a cutoff distance to the edge of the box. Similarly outer edges
+        are particles, that are outside of the box within a cutoff distance to the box edge.
+        
+        This function calculates all the distances and directions of particles in the inner edge w.r.t. particles 
+        in the outer edge and the filters out only particlies which lie in a cutoff distance towards each other.
+        """
+
+        # 3d logical lists
+        L_left = self.positions < self.cutoff_pbc
+        L_right = self.positions > (self.box_length-self.cutoff_pbc)
+
+        #indexes all atoms inside the inner edge
+        L_in = np.logical_or(np.sum(L_left, axis=1, dtype=bool), np.sum(L_right, axis=1, dtype=bool))
+
+        edges_in = self.positions[L_in]
+        edges_in_indices = self.indices[L_in]
+
+        # only continue if there are edges_in 
+        if edges_in_indices.size != 0:
+            # shift system and append to array
+            edges_out = self.positions + self.shifts[0]
+            edges_out_indices = np.arange(self.n_beeds) # NOTE maybe use deepcopy instead? idk what is faster
+            for shift in self.shifts[1:]:
+                edges_out = np.append(edges_out, self.positions+shift, axis=0)
+                edges_out_indices = np.append(edges_out_indices, self.indices)
+
+            # check which particles lie in the outer edge
+            L_left_out = np.logical_and((edges_out < 0), (edges_out >= -self.cutoff_pbc))
+            L_right_out = np.logical_and((edges_out >= self.box_length), (edges_out < (self.box_length+self.cutoff_pbc)))
+            L_out = np.logical_or(np.sum(L_left_out, axis=1, dtype=bool), np.sum(L_right_out, axis=1, dtype=bool))
+
+            edges_out = edges_out[L_out]
+            edges_out_indices = edges_out_indices[L_out]
+            
+            # only continue if there are edges_out
+            if edges_out_indices.size != 0:
+                # create distance matrix for edges in/out
+                n_in = len(edges_in_indices)
+                n_out = len(edges_out_indices)
+
+                # create mesh of vectors
+                A_mesh = np.tile(edges_in, (n_out, 1, 1)) # repeats vector along third dimension len(b) times
+                B_mesh = np.reshape(np.repeat(edges_out, n_in, 0), (n_out, n_in, 3)) # does the same but "flipped"
+
+                directions_edges = B_mesh-A_mesh
+                distances_edges = np.linalg.norm(directions_edges, axis=2)
+
+                idx_in, idx_out = np.meshgrid(edges_in_indices, edges_out_indices)
+                idx_table_edges = np.append([idx_in], [idx_out], axis=0)
+                
+                # only output distances smaller than  cutoff
+                L_edges = distances_edges < self.cutoff_pbc
+
+                dirs = directions_edges[L_edges]
+                dists = distances_edges[L_edges]
+                idxs = idx_table_edges[:, L_edges]
+                
+            # if there are no interactions in the edges, output dummy variables since these are not used anyways
+            else:
+                dirs = np.array(())
+                dists = np.array(())
+                idxs = np.array(())
+        else:
+            dirs = np.array(())
+            dists = np.array(())
+            idxs = np.array(())
+        
+        return dirs, dists, idxs
+    
+    def dist_dir_box(self):
+        """
+        Calculates all the distances and directions of atoms that are distanced with a certain cutoff radius.
+        
+        Returns a list of unnormalized directions, a list of distances and a list of atom index tuples w.r.t
+        the self.positions variable
+        """
+    
+        # TODO could be faster by only calculating triu matrix
+
+        # make 3d verion of meshgrid
+        r_left = np.tile(self.positions, (self.n_beeds, 1, 1)) # repeats vector along third dimension len(a) times
+        r_right = np.reshape(np.repeat(self.positions, self.n_beeds, 0), (self.n_beeds, self.n_beeds, 3)) # does the same but "flipped"
+
+        directions = r_left - r_right # this is right considering the mesh method. dir[i, j] = r_j - r_i
+        distances = np.linalg.norm(directions, axis=2)
+        
+        # use cutoff to index values 
+        # NOTE this could probably be done in a smarter way
+        distances += self.cutoff_pbc*np.eye(self.n_beeds) # add cutoff to disregard same atoms
+
+        L_box = distances < self.cutoff_pbc # NOTE the "<" is important, because if it was "<=" the diagonal values would be included
+        
+        dirs = directions[L_box]
+        dists = distances[L_box]
+        idxs = self.idx_table[:, L_box]
+        
+        return dirs, dists, idxs
 
     def get_forces(self):
         """
-        Delete al old forces and add all forces occuring in resulting from the self.positions configuration
+        Delete all old forces and add all forces occuring in resulting from the self.positions configuration
+        
+        This only works because the forces are defined in a way where they are directly added to the self.forces variable
         """
         
-        #delete old forces
+        # delete old forces
         self.forces = np.zeros((self.n_beeds, 3))
         
+        # add new forces
         self.force_NearestNeighbours()
         self.force_LennardJones_cutoff()
         self.force_Debye()
@@ -192,7 +367,7 @@ class Polymer:
         print(self.forces)
         
         self.forces = np.zeros((self.n_beeds, 3))
-        self.force_LennardJones()
+        self.force_LennardJones_cutoff()
         print("Lennard Jones")
         print(self.forces)
         
@@ -203,70 +378,63 @@ class Polymer:
         
         return
     
-    # TODO: reduce every unnecessary calculation in the forces
     
     def force_NearestNeighbours(self):
         """
         harmonice nearest neighhbour interactions
         """
+        # loop through index list and see if any tuple corresponds to bond
+        # NOTE if there were more NN forces in the system this should be done outside of the function
+        
+        L_nn = list(())
+        for idx in self.idx_interactions:
+            if np.any(np.logical_and(idx[0] == self.bonds[:, 0], idx[1] == self.bonds[:, 1])):
+                L_nn.append(True)
+            else:
+                L_nn.append(False)
+                
+        idxs = self.idx_interactions[L_nn]
+        distances = self.distances[L_nn].reshape(-1,1)
+        directions = self.directions[L_nn]
         
         # calculate the force of every bond at once
-        f_temp = 2*self.force_constant_nn*(self.distances_bonded-self.r0_beeds)
-        
-        for k, beed_idx in enumerate(self.bonds[:, 0]):
-            #print(k, beed_idx)
-            self.forces[beed_idx, :] += f_temp[k]*self.directions_bonded[k]
-        
-        return
-    
-    def force_LennardJones(self):
-        """
-        LJ nearest neighhbour interactions
-        """
-        f_temp = 4*self.epsilon_LJ*(-12*self.sigma_LJ**12/self.distances_bonded**13 + 6*self.sigma_LJ**7/self.distances_bonded**7)
-        
-        for k, beed_idx in enumerate(self.bonds[:, 0]):
-            #print(k, beed_idx)
-            self.forces[beed_idx, :] += f_temp[k]*self.directions_bonded[k]
+        forces_temp = 2*self.force_constant_nn*(1-self.r0_beeds/distances)*directions
+
+        for i, force in zip(idxs[:, 0], forces_temp):
+            self.forces[i, :] += force
         
         return
-    
+
     def force_LennardJones_cutoff(self):
         """
         LJ interactions using a cutoff
         """
         
-        cutoff = 2*self.r_beed
+        L_lj = self.distances < self.cutoff_LJ
+        
+        idxs = self.idx_interactions[L_lj]
+        distances = self.distances[L_lj].reshape(-1, 1)
+        directions = self.directions[L_lj]
+        
+        forces_temp = 4*self.epsilon_LJ*(-12*self.sigma_LJ**12/distances**14 + 6*self.sigma_LJ**7/distances**8)*directions
 
-        for i in range(self.n_beeds-1):
-            for j in range(i+1, self.n_beeds):
-                r_vec = self.positions[j] - self.positions[i]
-                r = np.sqrt(np.dot(r_vec, r_vec))
-                
-                if r < cutoff:
-                    f_temp = 4*self.epsilon_LJ*(-12*self.sigma_LJ**12/r**14 + 6*self.sigma_LJ**7/r**8)
-                    self.forces[i, :] += f_temp*r_vec
-                    self.forces[j, :] -= f_temp*r_vec
+        for i, force in zip(idxs[:, 0], forces_temp):
+            self.forces[i, :] += force
             
         return
-    
+
     def force_Debye(self):
-        """
-        non bonded interaction (debye screening)
-        """
-        
-        for i in range(self.n_beeds-1):
-            for j in range(i+1, self.n_beeds):
-                r_vec = self.positions[j] - self.positions[i]
-                r = np.sqrt(np.dot(r_vec, r_vec))
-                
-                if r < self.cutoff_debye:
-                    # the 1/r**2 factor comes from the normalisation of the direction vector
-                    f_temp = -self.A_debye*(1+self.B_debye*r)*np.exp(-self.B_debye*r)/r**3
-                    self.forces[i, :] += f_temp*r_vec
-                    self.forces[j, :] -= f_temp*r_vec
-        
-        return 
+            """
+            non bonded interaction (debye screening)
+            """
+            distances = self.distances.reshape(-1,1)
+            # since the debye cutoff is used for the dist/dir cutoff the distances dont have to be checked
+            forces_temp = -self.A_debye*(1+self.B_debye*distances)*np.exp(-self.B_debye*distances)*self.directions/distances**3
+            
+            for i, force in zip(self.idx_interactions[:, 0], forces_temp):
+                self.forces[i, :] += force
+            
+            return
 
     
     def force_Random(self):
@@ -417,6 +585,48 @@ class Polymer:
         
         return
     
+    def get_structure_factor(self,
+                        q = None):
+        """
+        Calculates the structure factor of an isotropic system for different wavenumbers q
+        Averaged over the whole trajectory
+        
+        Parametetrs
+            q (ndarray):
+                1D array of wavenumbers
+        """ 
+        if q is None:
+            q = np.linspace(0.01, 0.8, 300) # kinda arbitrary right now
+            # q_vec = q_i - q_s (i=incident, s=scattered), |q_i|=|q_s|=2pi n/lambda
+            # q = 4 pi n/lamda * sin(theta/2)
+            # n... refractive index of the solution
+            # lambda... wavelength of the beam
+            # theta... angle between incident beam and scattered beam
+            
+        # NOTE q could also be calculated using a scattering angle and a wavelength vector:
+        # lam = np.linspace(0.5, 20, 300) # wavelength in reduced units
+        # n = 1.1 # refractive index
+        # theta = 0.05 #scattering angle
+        # q = 4*np.pi*n/lam * np.sin(theta/2)
+        
+        # NOTE for small angle scattering one could use approximations for better performance
+            
+        q = np.array(q)
+        
+        self.structure_factor = np.zeros(len(q))
+               
+        for frame in self.trajectory:
+            for i in range(self.n_beeds-1):
+                for j in range(i+1, self.n_beeds):
+                    r = frame[j] - frame[i] 
+                    qr = q*np.sqrt(np.dot(r, r))
+                    self.structure_factor += np.sin(qr)/qr
+        
+        #factor 2 because of double sum reduction from i,j to i<j
+        self.structure_factor = self.structure_factor*2/self.n_beeds**2/len(self.trajectory)
+        
+        return
+    
     def create_topology_pdb(self):
         """
         Creates a pdb topology of the current system
@@ -473,7 +683,38 @@ class Polymer:
         
         return
     
+    def load_traj_gro(self, 
+                      fname: str = None,
+                      overwrite: bool = False):
+         
+        if fname is None:
+            raise TypeError("Error: provide filename")
+        if os.path.exists(fname) != True:
+            raise TypeError(f"Error: file \"{fname:s}\" does not exist")
+        
+        if overwrite == False:
+            # TODO remove the "or" once the initialisation is fixed
+            if (self.trajectory is None) or (len(self.trajectory<2)):
+                raise Exception("Error: Polymer object already has a trajectory")
+            else:
+                self.trajectory = md.load(fname).xyz
+        else:
+            self.trajectory = md.load(fname).xyz
+        
+        
+        self.positions = self.trajectory[-1]
+        self.get_bonds()
     
+    def apply_pbc(self):
+        """
+        Repositions all atoms outside of the box to the other end of the box
+        """
+        
+        # calculate modulo L
+        self.positions = np.mod(self.positions, self.box_length)
+        
+        return
+        
     def simulate(self, 
                  steps: int = 10000, 
                  write_traj: bool = True, 
@@ -501,6 +742,9 @@ class Polymer:
             # NOTE: the timestep of the integrator is already implicitly contained in the particle mobility
             self.positions = self.positions + self.mobility*self.forces + self.force_Random()
             
+            # apply periodic boundary conditions
+            self.apply_pbc()
+            
             # This would be needed if the velovity is calculated:
             #self.positions_new = self.positions + self.mobility*self.forces + self.force_Random()
             #self.velocities = (self.positions - self.positions_new)
@@ -510,11 +754,11 @@ class Polymer:
             if (write_traj==True) and (step%stride==0):
                 self.trajectory = np.append(self.trajectory, [self.positions], axis=0)
             
-            if np.any(self.distances_bonded > 5):
-                print("System exploded")
-                print("simulation Step", step)
-                #print(self.forces)
-                #print(self.distances_bonded)
-                break
+            # if np.any(self.distances_bonded > 5):
+            #     print("System exploded")
+            #     print("simulation Step", step)
+            #     #print(self.forces)
+            #     #print(self.distances_bonded)
+            #     break
 
         return
