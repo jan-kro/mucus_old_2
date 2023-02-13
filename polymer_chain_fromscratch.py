@@ -5,10 +5,10 @@ import os
 
 
 
-n_beeds = 50
+n_beeds = 1000
 mobility = 0.00005
 
-steps = 100000
+steps = 10000
 stride = 50
 
 fname = f"/storage/janmak98/masterthesis/trajectories/single_chain/traj_{n_beeds:d}beads_{steps:d}steps_{mobility:.6f}mu_{stride:d}stride.gro"

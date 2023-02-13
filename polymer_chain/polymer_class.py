@@ -11,7 +11,6 @@ from numba import njit
 class Polymer:
     
     def __init__(self,
-                 n_beeds:           int     = 10,
                  r_beed:            float   = 1.0,
                  q_beed:            float   = 2.08,
                  bonds:             list    = None,
@@ -27,7 +26,6 @@ class Polymer:
                  box_length:        float   = None,
                  cwd:               str     = "/home/jan/Documents/masterthesis/project/mucus"):
     
-        self.n_beeds            = n_beeds
         self.r_beed             = r_beed
         self.q_beed             = q_beed
         self.mobility           = mobility
@@ -45,14 +43,147 @@ class Polymer:
         
         self.r0_beeds           = 2*r_beed
         self.A_debye            = self.q_beed**2*self.lB_debye
-        self.B_debye            = 1/(r_beed*38.46153*self.c_S) # 1/(debye screening length) in units of beed radius
+        self.B_debye            = 1/(r_beed*38.46153*self.c_S) # 1/(debye screening length) in units of beed radius            
+        
+    # TODO: make all variables "None" and initialize in methods
+        self.n_beeds                = None
+        self.box_length             = None
+        self.shifts                 = None
+        self.positions              = None
+        self.forces                 = None
+        self.energy                 = None
+        self.trajectory             = None
+        self.distances_bonded       = list(())
+        self.directions_bonded      = list(())
+        self.distances              = None
+        self.directions             = None
+        self.cm_trajectory          = None
+        self.msd                    = None
+        self.structure_factor       = None
+        self.indices                = None
+        self.idx_table              = None
+        self.idx_interactions       = None
+        
+        
+    # TODO: redo the get_bonds() method so that every bond pair only exists once
     
-    # TODO is there a better way to do this??
-        if box_length is None:
-            self.box_length = 4*r_beed*n_beeds  # make box length 2 times chain length (arbitrary)
-        else:
-            self.box_length = box_length
+    def create_chain(self,
+                     N = 10, 
+                     axis: int = 0):
+        """
+        Create linear chain along specified axis, centered in the origin.
+        The get_bonds() method is called here automatically.
+        
+        Arguments:
+            axis (int): specify on which axis the chain lies on (0,1,2) -> (x,y,z)
+        """
+        self.n_beeds = N
+        self.box_length = 2*self.r0_beeds*self.n_beeds
+        
+        self.positions = np.zeros((self.n_beeds, 3))
+        
+        for k in range(self.n_beeds):
+            self.positions[k, axis] = k*self.r0_beeds
+        
+        #center chain around 0
+        if self.n_beeds != 1:
+            self.positions[:, axis] -= self.r0_beeds*(self.n_beeds-1)/2
+        
+        # create index list
+        self.indices = np.arange(self.n_beeds)
+        
+        # create nxn index table 
+        self.idx_table = np.zeros((2, self.n_beeds, self.n_beeds), dtype=int)
+        for i in range(self.n_beeds):
+            for j in range(self.n_beeds):
+                self.idx_table[0, i, j] = i
+                self.idx_table[1, i, j] = j
 
+        self.positions += np.array((self.box_length/2, self.box_length/2, self.box_length/2)) 
+        
+        # set first trajecory frame to initial position
+        self.trajectory = np.zeros((1, self.n_beeds, 3)) # first dim is the frame
+        self.trajectory[0,:,:] = deepcopy(self.positions)
+        
+        self.create_shifts()
+        self.apply_pbc()
+        self.get_bonds()
+        
+        return
+    
+    
+    def create_box(self, N=10, M=5, r0=2, L=None):
+        # create box with M chains consisting of N atoms
+        
+        self.n_beeds = N*M
+        
+        if M == 1:
+            self.create_chain(N=N*M)
+            return
+        
+        if L is None:
+            L = N*r0 # box length
+
+        self.box_length = L
+        
+        n_row = int(np.round(np.sqrt(M)))
+
+        # check how many cols are needed
+        n_col = 0
+        while n_col*n_row < M:
+            n_col += 1
+
+        d_row = L/(n_row+1)
+        d_col = L/(n_col+1)
+
+        positions = np.zeros((M*N, 3))
+        bonds = list(())
+
+        particle_idx = 0
+        # make centered mesh
+        for i in range(n_col):
+            for j in range(n_row):
+                if particle_idx == N*M:
+                    break
+                # create chain
+                n = 0
+                for k in range(particle_idx, N+particle_idx):
+                    positions[k, (i+1)%2] = (L-r0*(N-1))/2 + n*r0
+                    positions[k, i%2] = j*d_row + d_row 
+                    positions[k, 2] = i*d_col + d_col 
+                    n += 1
+                # add bonds to bond list
+                bonds.append((particle_idx, particle_idx+1))
+                for k in range(N-2):
+                    particle_idx += 1
+                    bonds.append((particle_idx, particle_idx-1))
+                    bonds.append((particle_idx, particle_idx+1))
+                particle_idx += 1
+                bonds.append((particle_idx, particle_idx-1))
+                particle_idx += 1
+                
+        self.positions = deepcopy(positions)
+        self.bonds = np.array(bonds)
+        
+        self.trajectory = np.zeros((1, self.n_beeds, 3))
+        self.trajectory[0,:,:] = deepcopy(self.positions)
+        
+        # create index list
+        self.indices = np.arange(self.n_beeds)
+        
+        # create nxn index table 
+        self.idx_table = np.zeros((2, self.n_beeds, self.n_beeds), dtype=int)
+        for i in range(self.n_beeds):
+            for j in range(self.n_beeds):
+                self.idx_table[0, i, j] = i
+                self.idx_table[1, i, j] = j
+        
+        self.create_shifts()
+        self.apply_pbc() # unnecessary but feels wrong not to do it
+        
+        return
+    
+    def create_shifts(self):
         # array that shifts box for pbc
         self.shifts = np.array(((self.box_length,   0,                0),
                                 (0,                 self.box_length,  0),
@@ -79,68 +210,7 @@ class Polymer:
                                 (-self.box_length, -self.box_length,  self.box_length),
                                 (-self.box_length,  self.box_length, -self.box_length),
                                 (self.box_length,  -self.box_length, -self.box_length),
-                                (-self.box_length, -self.box_length, -self.box_length)))    
-            
-        
-    # TODO: make all variables "None" and initialize in methods
-        
-        self.positions              = None
-        self.positions_new          = np.zeros((n_beeds, 3))
-        self.velocities             = np.zeros((n_beeds, 3))
-        self.forces                 = np.zeros((n_beeds, 3))
-        self.energy                 = 0
-        self.trajectory             = np.zeros((1, n_beeds, 3)) # first dim is the frame
-        self.distances_bonded       = list(())
-        self.directions_bonded      = list(())
-        self.distances              = None
-        self.directions             = None
-        self.cm_trajectory          = None
-        self.msd                    = None
-        self.structure_factor       = None
-        self.indices                = None
-        self.idx_table              = None
-        self.idx_interactions       = None
-        
-        
-    # TODO: redo the get_bonds() method so that every bond pair only exists once
-    
-    def create_chain(self, 
-                     axis: int = 0):
-        """
-        Create linear chain along specified axis, centered in the origin.
-        The get_bonds() method is called here automatically.
-        
-        Arguments:
-            axis (int): specify on which axis the chain lies on (0,1,2) -> (x,y,z)
-        """
-        
-        self.positions = np.zeros((self.n_beeds, 3))
-        
-        for k in range(self.n_beeds):
-            self.positions[k, axis] = k*self.r0_beeds
-        
-        #center chain around 0
-        if self.n_beeds != 1:
-            self.positions[:, axis] -= self.r0_beeds*(self.n_beeds-1)/2
-        
-        # create index list
-        self.indices = np.arange(self.n_beeds)
-        
-        # create nxn index table 
-        self.idx_table = np.zeros((2, self.n_beeds, self.n_beeds), dtype=int)
-        for i in range(self.n_beeds):
-            for j in range(self.n_beeds):
-                self.idx_table[0, i, j] = i
-                self.idx_table[1, i, j] = j
-
-        self.positions += np.array((self.box_length/2, self.box_length/2, self.box_length/2)) 
-        
-        # set first trajecory frame to initial position
-        self.trajectory[0,:,:] = deepcopy(self.positions)
-        
-        self.apply_pbc()
-        self.get_bonds()
-        
+                                (-self.box_length, -self.box_length, -self.box_length)))
         return
     
     def create_test_chain(self, 
@@ -683,6 +753,8 @@ class Polymer:
         
         if fname_traj is None:
             fname_traj = os.path.join(self.cwd, f"trajectories/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro")
+        else:
+            fname_traj = self.cwd + "/trajectories/" + fname_traj
         
         # save trajectory in mdtraj to create .gro simulation trajectory
         topology = md.load(fname_top).topology
