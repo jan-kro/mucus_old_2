@@ -1,0 +1,7 @@
+steps = 1000
+stride = 50
+nbeads = 10
+nchains = 6
+mobility = 0.00005
+fname_sys = "/home/jan/Desktop"
+fname_traj = "/home/jan/Desktop"
