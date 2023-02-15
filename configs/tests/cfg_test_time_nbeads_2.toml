@@ -1,0 +1,7 @@
+steps = 5000
+stride = 50
+nbeads = 10
+nchains = 16
+mobility = 5e-05
+fname_sys = '/home/janmak98/mucus/configs/cfg_test_time_nbeads_2.toml'
+fname_traj = '/storage/janmak98/masterthesis/trajectories/box/test/traj_test_time_nbeads_2.gro'
