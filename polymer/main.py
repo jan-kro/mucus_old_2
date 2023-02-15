@@ -6,8 +6,13 @@ from .config import Config
 from polymer import Polymer
 
 
-def run_sim(type: str = "box"):
-    config = Config.from_toml(sys.argv[1])
+def run_sim(type: str = "box", fname_config: str = None):
+    
+    if fname_config is None:
+        config = Config.from_toml(sys.argv[1])
+    else:
+        config = Config.from_toml(fname_config)
+        
     p = Polymer(config)
     
     if type == "box":
