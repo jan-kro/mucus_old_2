@@ -5,6 +5,7 @@ import tidynamics as tid
 import os
 
 from polymer.config import Config
+from time import time
 
 from copy import deepcopy
 
@@ -13,8 +14,7 @@ class Polymer:
     def __init__(self, config: Config):
         
         self.config = config
-        # TODO add steps, stride, nbeads, nchains into create box and simulate
-
+        
         self.r_beed                 = None
         self.q_beed                 = None
         self.mobility               = None
@@ -48,9 +48,7 @@ class Polymer:
         self.idx_table              = None
         self.idx_interactions       = None
         
-        
         self.setup(config)
-        
         
     # TODO: redo the get_bonds() method so that every bond pair only exists once
     
@@ -902,6 +900,8 @@ class Polymer:
         if self.bonds is None:
             self.get_bonds()
         
+        t_start = time()
+        
         for step in range(self.config.steps-1):
             
             # get distances for interactions
@@ -933,5 +933,8 @@ class Polymer:
             #     #print(self.forces)
             #     #print(self.distances_bonded)
             #     break
+        t_end = time()
+        
+        self.config.simulation_time = t_end - t_start
 
         return

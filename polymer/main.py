@@ -22,16 +22,14 @@ def run_sim(type: str = "box"):
     now_str = f"{now.tm_mon:d}.{now.tm_mday}.{now.tm_year}  {now.tm_hour}:{now.tm_min}:{now.tm_sec}"
     print("\nsimulation started ", now_str)
     
-    t1 = time.time()
     p.simulate()
-    t2 = time.time()
 
     now = time.localtime()
     now_str = f"{now.tm_mon:d}.{now.tm_mday}.{now.tm_year}  {now.tm_hour}:{now.tm_min}:{now.tm_sec}"
 
     print("simulation finished ", now_str)
 
-    print("simulation time: ", datetime.timedelta(seconds=round(t2-t1)))
+    print("simulation time: ", datetime.timedelta(seconds=round(p.config.simulation_time)))
     
     print("\nsave system...")
     p.save_system()

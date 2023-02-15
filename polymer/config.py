@@ -26,6 +26,7 @@ class Config(BaseModel):
     fname_traj:         str     = None
     fname_sys:          str     = None
     bonds:              list    = None
+    simulation_time:    float   = None
 
     @classmethod
     def from_toml(cls, path):
