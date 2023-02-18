@@ -303,7 +303,7 @@ class Polymer:
             self.bonds.append((self.n_beeds-1, self.n_beeds-2))
             
             self.bonds = np.array(self.bonds)
-            self.config.bonds = self.bonds
+            #self.config.bonds = self.bonds                             # TODO implement this here again after testing
         
         # calculate distances and directions for every bond tuple
         self.get_distances_directions()
