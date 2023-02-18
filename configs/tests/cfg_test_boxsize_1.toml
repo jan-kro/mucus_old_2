@@ -1,0 +1,9 @@
+steps = 10000
+stride = 5
+nbeads = 10
+nchains = 8
+mobility = 5e-05
+lbox = 25.0
+fname_sys = '/home/janmak98/mucus/configs/cfg_test_boxsize_1.toml'
+fname_traj = '/storage/janmak98/masterthesis/trajectories/box/test/traj_test_boxsize_1.gro'
+cwd = '/home/janmak98/mucus'
