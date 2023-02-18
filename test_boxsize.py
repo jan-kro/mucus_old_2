@@ -3,7 +3,7 @@ import os
 
 cwd = os.getcwd()
 cfg_path = cwd + "/configs/tests"
-cfg_name = "test_boxsize"
+cfg_name = "test_boxsize_long"
 n = 5
 for i in range(n):
     fin = cfg_path + f"/cfg_{cfg_name:s}_{i:d}.toml"
