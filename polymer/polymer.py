@@ -69,7 +69,7 @@ class Polymer:
             self.cutoff_pbc = np.max((self.cutoff_debye, self.cutoff_LJ))
             self.config.cutoff_pbc = self.cutoff_pbc
         self.pbc                = config.pbc
-        self.bonds              = config.bonds
+        # self.bonds              = config.bonds                                    # TODO change this after testing
         self.cwd                = config.cwd       
         
         self.r0_beeds           = 2*self.r_beed
