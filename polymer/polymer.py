@@ -53,6 +53,7 @@ class Polymer:
     # TODO: redo the get_bonds() method so that every bond pair only exists once
     
     def setup(self, config):
+        self.n_beeds            = config.number_of_beads
         self.r_beed             = config.rbead
         self.q_beed             = config.qbead
         self.mobility           = config.mobility
@@ -69,7 +70,7 @@ class Polymer:
             self.cutoff_pbc = np.max((self.cutoff_debye, self.cutoff_LJ))
             self.config.cutoff_pbc = self.cutoff_pbc
         self.pbc                = config.pbc
-        # self.bonds              = config.bonds                                    # TODO change this after testing
+        self.bonds              = config.bonds                                    
         self.cwd                = config.cwd       
         
         self.r0_beeds           = 2*self.r_beed
@@ -185,6 +186,7 @@ class Polymer:
                 
         self.positions = deepcopy(positions)
         self.bonds = np.array(bonds)
+        self.config.bonds = deepcopy(self.bonds)
         
         self.trajectory = np.zeros((1, self.n_beeds, 3))
         self.trajectory[0,:,:] = deepcopy(self.positions)
@@ -303,7 +305,7 @@ class Polymer:
             self.bonds.append((self.n_beeds-1, self.n_beeds-2))
             
             self.bonds = np.array(self.bonds)
-            #self.config.bonds = self.bonds                             # TODO implement this here again after testing
+            self.config.bonds = self.bonds                        
         
         # calculate distances and directions for every bond tuple
         self.get_distances_directions()

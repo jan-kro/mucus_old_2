@@ -6,6 +6,7 @@ import os
 class Config(BaseModel):
     steps:              int
     stride:             int
+    number_of_beads:    int
     nbeads:             int
     nchains:            int
     mobility:           float
@@ -27,7 +28,7 @@ class Config(BaseModel):
     fname_traj:         str     = None
     fname_sys:          str     = None
     simulation_time:    float   = None
-    #bonds:              list    = None # add this again after testing
+    bonds:              list    = None # add this again after testing
 
     @classmethod
     def from_toml(cls, path):
