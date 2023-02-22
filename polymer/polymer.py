@@ -89,7 +89,10 @@ class Polymer:
         self.create_shifts()
     
     def print_sim_info(self):
-        output = str(self.config)
+        """
+        print the config without the bonds
+        """
+        output = str(self.config).split("bonds")[0]
         output = output.replace(" ", "\n")
         output = output.replace("=", " = ")
         print(output)
