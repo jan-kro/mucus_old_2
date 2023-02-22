@@ -129,9 +129,9 @@ class Config(BaseModel, arbitrary_types_allowed=True):
         return
 
 
-if __name__ == "__main__":
-    config = Config.from_toml("/home/jan/Documents/masterthesis/project/mucus/configs/tests/cfg_test_box_10_12_0.toml")
-    print(config)
+# if __name__ == "__main__":
+#     config = Config.from_toml("/home/jan/Documents/masterthesis/project/mucus/configs/tests/cfg_test_box_10_12_0.toml")
+#     print(config)
     # cofig = Config(
     #     steps = 1,
     #     stride = 1,
