@@ -3,7 +3,7 @@ import os
 
 cwd = os.getcwd()
 cfg_path = cwd + "/configs/tests"
-n = 5
+n = 5                               
 for i in range(n):
     fin = cfg_path + f"/cfg_test_time_nbeads_2_{i:d}.toml"
     

@@ -54,6 +54,7 @@ class Polymer:
     
     def setup(self, config):
         self.n_beeds            = config.number_of_beads
+        self.box_length         = config.lbox
         self.r_beed             = config.rbead
         self.q_beed             = config.qbead
         self.mobility           = config.mobility
@@ -75,7 +76,17 @@ class Polymer:
         
         self.r0_beeds           = 2*self.r_beed
         self.A_debye            = self.q_beed**2*self.lB_debye
-        self.B_debye            = 1/(self.r_beed*38.46153*self.c_S)
+        self.B_debye            = 1/(self.r_beed*38.46153*self.c_S) 
+        self.indices            = np.arange(self.n_beeds)
+        
+        # create nxn index table 
+        self.idx_table = np.zeros((2, self.n_beeds, self.n_beeds), dtype=int)
+        for i in range(self.n_beeds):
+            for j in range(self.n_beeds):
+                self.idx_table[0, i, j] = i
+                self.idx_table[1, i, j] = j
+                
+        self.create_shifts()
     
     def print_sim_info(self):
         output = str(self.config)
@@ -186,7 +197,7 @@ class Polymer:
                 
         self.positions = deepcopy(positions)
         self.bonds = np.array(bonds)
-        self.config.bonds = deepcopy(self.bonds)
+        self.config.bonds = self.bonds.tolist()
         
         self.trajectory = np.zeros((1, self.n_beeds, 3))
         self.trajectory[0,:,:] = deepcopy(self.positions)
@@ -305,7 +316,7 @@ class Polymer:
             self.bonds.append((self.n_beeds-1, self.n_beeds-2))
             
             self.bonds = np.array(self.bonds)
-            self.config.bonds = self.bonds                        
+            self.config.bonds = self.bonds.tolist()                       
         
         # calculate distances and directions for every bond tuple
         self.get_distances_directions()

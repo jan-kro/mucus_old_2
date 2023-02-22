@@ -1,9 +1,12 @@
 import re
+import numpy as np
 import toml
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 import os
+from typing import Optional
 
-class Config(BaseModel):
+
+class Config(BaseModel, arbitrary_types_allowed=True):
     steps:              int
     stride:             int
     number_of_beads:    int
@@ -17,18 +20,18 @@ class Config(BaseModel):
     sigma_LJ:           float   = 2.0
     cutoff_LJ:          float   = 2.0
     lB_debye:           float   = 3.077
-    c_S:                float   = 10
+    c_S:                float   = 10.0
     cutoff_debye:       float   = 4.0
-    lbox:               float   = None
+    lbox:               Optional[float]   = None
     pbc:                bool    = True
-    cutoff_pbc:         float   = None
+    cutoff_pbc:         Optional[float]   = None
     save_traj:          bool    = True
     write_traj:         bool    = True
     cwd:                str     = "/home/jan/Documents/masterthesis/project/mucus"
-    fname_traj:         str     = None
-    fname_sys:          str     = None
-    simulation_time:    float   = None
-    bonds:              list    = None # add this again after testing
+    fname_traj:         Optional[str]     = None
+    fname_sys:          Optional[str]     = None
+    simulation_time:    Optional[float]   = None
+    bonds:              Optional[np.ndarray]    = None # add this again after testing
 
     @classmethod
     def from_toml(cls, path):
@@ -38,6 +41,28 @@ class Config(BaseModel):
     @classmethod
     def from_dict(cls, dict):
         return cls(**dict)
+    
+    @root_validator(pre=True)
+    def validate_ndarrays(cls, values):
+        """
+        Iterates through the whole config dictionary
+        
+        for the bonds key, either a list, is accepted, which is then turend into a ndarray, or a str is accepted, which specifies a path leading to a saved numpy array
+        """
+        for key, item in values.items():
+            data_type = cls.__annotations__[key]
+            if data_type == Optional[np.ndarray] or data_type == np.ndarray:
+                if item is not None:
+                    if isinstance(item, str):
+                        values[key] = np.load(item)
+                    else:
+                        values[key] = np.array(item)
+                else:
+                    if data_type is np.ndarray:
+                        raise ValueError(f"We expected array for {key} but found None.")
+            if key == "cwd":
+                values[key] = os.getcwd()
+        return values
 
     def __format__(self, __format_spec: str) -> str:
         """Format the config as a toml file such that atrributes
@@ -102,3 +127,35 @@ class Config(BaseModel):
         f.close()
         
         return
+
+
+if __name__ == "__main__":
+    config = Config.from_toml("/home/jan/Documents/masterthesis/project/mucus/configs/tests/cfg_test_box_10_12_0.toml")
+    print(config)
+    # cofig = Config(
+    #     steps = 1,
+    #     stride = 1,
+    #     number_of_beads:    int
+    #     nbeads:             int
+    #     nchains:            int
+    #     mobility:           float
+    #     rbead:              float   = 1.0
+    #     qbead:              float   = 2.08
+    #     force_constant:     float   = 100.0
+    #     epsilon_LJ:         float   = 0.25
+    #     sigma_LJ:           float   = 2.0
+    #     cutoff_LJ:          float   = 2.0
+    #     lB_debye:           float   = 3.077
+    #     c_S:                float   = 10
+    #     cutoff_debye:       float   = 4.0
+    #     lbox:               Optional[float]   = None
+    #     pbc:                bool    = True
+    #     cutoff_pbc:         Optional[float]   = None
+    #     save_traj:          bool    = True
+    #     write_traj:         bool    = True
+    #     cwd:                str     = "/home/jan/Documents/masterthesis/project/mucus"
+    #     fname_traj:         Optional[str]     = None
+    #     fname_sys:          Optional[str]     = None
+    #     simulation_time:    Optional[float]   = None
+    #     bonds:              Optional[np.ndarray]    = None # add this again after testing        
+    # )
