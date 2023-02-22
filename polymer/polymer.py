@@ -878,6 +878,8 @@ class Polymer:
         self.config.fname_sys = fname_sys
         
         output = str(self.config)
+        output = output.replace("True", "true") # for toml formating
+        output = output.replace("False", "false")
         output = output.replace(" ", "\n")
         output = output.replace("=", " = ")
 
