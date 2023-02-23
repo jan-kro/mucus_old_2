@@ -21,17 +21,17 @@ class Config(BaseModel, arbitrary_types_allowed=True):
     cutoff_LJ:          float   = 2.0
     lB_debye:           float   = 3.077
     c_S:                float   = 10.0
-    cutoff_debye:       float   = 4.0
-    lbox:               Optional[float]   = None
-    pbc:                bool    = True
-    cutoff_pbc:         Optional[float]   = None
-    save_traj:          bool    = True
-    write_traj:         bool    = True
-    cwd:                Optional[str]     = None
-    fname_traj:         Optional[str]     = None
-    fname_sys:          Optional[str]     = None
-    simulation_time:    Optional[float]   = None
-    bonds:              Optional[np.ndarray]    = None # add this again after testing
+    cutoff_debye:       float               = 4.0
+    lbox:               Optional[float]     = None
+    pbc:                bool                = True
+    cutoff_pbc:         Optional[float]     = None
+    save_traj:          bool                = True
+    write_traj:         bool                = True
+    cwd:                Optional[str]       = os.getcwd()
+    fname_traj:         Optional[str]       = None
+    fname_sys:          Optional[str]       = None
+    simulation_time:    Optional[float]     = None
+    bonds:              Optional[np.ndarray]= None 
 
     @classmethod
     def from_toml(cls, path):
@@ -132,30 +132,3 @@ class Config(BaseModel, arbitrary_types_allowed=True):
 # if __name__ == "__main__":
 #     config = Config.from_toml("/home/jan/Documents/masterthesis/project/mucus/configs/tests/cfg_test_box_10_12_0.toml")
 #     print(config)
-    # cofig = Config(
-    #     steps = 1,
-    #     stride = 1,
-    #     number_of_beads:    int
-    #     nbeads:             int
-    #     nchains:            int
-    #     mobility:           float
-    #     rbead:              float   = 1.0
-    #     qbead:              float   = 2.08
-    #     force_constant:     float   = 100.0
-    #     epsilon_LJ:         float   = 0.25
-    #     sigma_LJ:           float   = 2.0
-    #     cutoff_LJ:          float   = 2.0
-    #     lB_debye:           float   = 3.077
-    #     c_S:                float   = 10
-    #     cutoff_debye:       float   = 4.0
-    #     lbox:               Optional[float]   = None
-    #     pbc:                bool    = True
-    #     cutoff_pbc:         Optional[float]   = None
-    #     save_traj:          bool    = True
-    #     write_traj:         bool    = True
-    #     cwd:                str     = "/home/jan/Documents/masterthesis/project/mucus"
-    #     fname_traj:         Optional[str]     = None
-    #     fname_sys:          Optional[str]     = None
-    #     simulation_time:    Optional[float]   = None
-    #     bonds:              Optional[np.ndarray]    = None # add this again after testing        
-    # )
