@@ -14,14 +14,14 @@ class Config(BaseModel, arbitrary_types_allowed=True):
     nchains:            int
     mobility:           float
     rbead:              float   = 1.0
-    qbead:              float   = 2.08
+    qbead:              float   = 1.524 # 2.08
     force_constant:     float   = 100.0
     epsilon_LJ:         float   = 0.25
     sigma_LJ:           float   = 2.0
     cutoff_LJ:          float   = 2.0
-    lB_debye:           float   = 3.077
+    lB_debye:           float   = 36.737 # 3.077
     c_S:                float   = 10.0
-    cutoff_debye:       float               = 4.0
+    cutoff_debye:       float               = None
     lbox:               Optional[float]     = None
     pbc:                bool                = True
     cutoff_pbc:         Optional[float]     = None

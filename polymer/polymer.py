@@ -47,9 +47,11 @@ class Polymer:
         self.indices                = None
         self.idx_table              = None
         self.idx_interactions       = None
+        self.L_nn                   = None
         
         self.setup(config)
-        
+    # TODO save the distance table as trajectory-like object
+    
     # TODO: redo the get_bonds() method so that every bond pair only exists once
     
     def setup(self, config):
@@ -64,20 +66,24 @@ class Polymer:
         self.cutoff_LJ          = config.cutoff_LJ
         self.lB_debye           = config.lB_debye # units of beed radii
         self.c_S                = config.c_S # salt concentration [c_S] = mM
-        self.cutoff_debye       = config.cutoff_debye
-        self.cutoff_pbc         = config.cutoff_pbc
-        if self.cutoff_pbc is None:
-            # NOTE here the cutoff of the force with the longest range is used
-            self.cutoff_pbc = np.max((self.cutoff_debye, self.cutoff_LJ))
-            self.config.cutoff_pbc = self.cutoff_pbc
         self.pbc                = config.pbc
         self.bonds              = config.bonds                                    
         self.cwd                = config.cwd       
+        self.cutoff_pbc         = config.cutoff_pbc
+        
+        # TODO implement this properly
+        self.r0_beeds_nm        = 0.1905 # nm calculated for one PEG Monomer
         
         self.r0_beeds           = 2*self.r_beed
         self.A_debye            = self.q_beed**2*self.lB_debye
-        self.B_debye            = 1/(self.r_beed*38.46153*self.c_S) 
+        # self.B_debye            = 1/(self.r_beed*38.46153*np.sqrt(self.c_S)) # TODO check this again
+        self.B_debye            = np.sqrt(self.c_S)*self.r0_beeds_nm/10 # from the relationship in the Hansing thesis
         self.indices            = np.arange(self.n_beeds)
+        
+        # calculate debye cutoff from salt concentration
+        self.cutoff_debye       = config.cutoff_debye
+        if self.cutoff_debye == None:
+            self.get_cutoff_debye()
         
         # create nxn index table 
         self.idx_table = np.zeros((2, self.n_beeds, self.n_beeds), dtype=int)
@@ -85,8 +91,19 @@ class Polymer:
             for j in range(self.n_beeds):
                 self.idx_table[0, i, j] = i
                 self.idx_table[1, i, j] = j
-                
-        self.create_shifts()
+        
+        # check for pbc
+        if self.pbc == True: 
+            
+            if self.cutoff_pbc is None:
+                # NOTE here the cutoff of the force with the longest range is used
+                self.cutoff_pbc = np.max((self.cutoff_debye, self.cutoff_LJ))
+                self.config.cutoff_pbc = self.cutoff_pbc
+            
+            if self.box_length is None:
+                self.box_length = self.config.nbeads*self.r0_beeds
+                   
+            self.create_shifts()
     
     def print_sim_info(self):
         """
@@ -350,6 +367,15 @@ class Polymer:
             self.distances = np.append(distances, distances_edges, axis=0)
             self.idx_interactions = np.append(idx_table, idx_table_edges, axis=1).T
         
+        # loop through index list and see if any tuple corresponds to bond        
+        L_nn = list(())
+        for idx in self.idx_interactions:
+            if np.any(np.logical_and(idx[0] == self.bonds[:, 0], idx[1] == self.bonds[:, 1])):
+                L_nn.append(True)
+            else:
+                L_nn.append(False)
+                
+        self.L_nn = L_nn
         
         return
     
@@ -501,19 +527,10 @@ class Polymer:
         """
         harmonice nearest neighhbour interactions
         """
-        # loop through index list and see if any tuple corresponds to bond
-        # NOTE if there were more NN forces in the system this should be done outside of the function
-        
-        L_nn = list(())
-        for idx in self.idx_interactions:
-            if np.any(np.logical_and(idx[0] == self.bonds[:, 0], idx[1] == self.bonds[:, 1])):
-                L_nn.append(True)
-            else:
-                L_nn.append(False)
                 
-        idxs = self.idx_interactions[L_nn]
-        distances = self.distances[L_nn].reshape(-1,1)
-        directions = self.directions[L_nn]
+        idxs = self.idx_interactions[self.L_nn]
+        distances = self.distances[self.L_nn].reshape(-1,1)
+        directions = self.directions[self.L_nn]
         
         # calculate the force of every bond at once
         forces_temp = 2*self.force_constant_nn*(1-self.r0_beeds/distances)*directions
@@ -542,18 +559,37 @@ class Polymer:
         return
 
     def force_Debye(self):
-            """
-            non bonded interaction (debye screening)
-            """
-            distances = self.distances.reshape(-1,1)
-            # since the debye cutoff is used for the dist/dir cutoff the distances dont have to be checked
-            forces_temp = -self.A_debye*(1+self.B_debye*distances)*np.exp(-self.B_debye*distances)*self.directions/distances**3
-            
-            for i, force in zip(self.idx_interactions[:, 0], forces_temp):
-                self.forces[i, :] += force
-            
-            return
+        """
+        non bonded interaction (debye screening)
+        """
+        
+        # exclude bonds
+        L_nb = np.logical_not(self.L_nn)
+        
+        idxs = self.idx_interactions[L_nb]
+        distances = self.distances[L_nb].reshape(-1, 1)
+        directions = self.directions[L_nb]
+        
+        # since the debye cutoff is used for the dist/dir cutoff the distances dont have to be checked
+        forces_temp = -self.A_debye*(1+self.B_debye*distances)*np.exp(-self.B_debye*distances)*directions/distances**3
+        
+        for i, force in zip(idxs[:, 0], forces_temp):
+            self.forces[i, :] += force
+        
+        return
 
+    def get_cutoff_debye(self, eps=1):
+        r = 0
+        dr = 0.05
+        force = 9999 
+        while force > eps:
+            r += dr
+            force = self.A_debye*(1+self.B_debye*r)*np.exp(-self.B_debye*r)/r**2
+            
+        self.cutoff_debye = r
+        self.config.cutoff_debye = r
+        
+        return 
     
     def force_Random(self):
         """
