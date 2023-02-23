@@ -880,6 +880,11 @@ class Polymer:
         output = str(self.config)
         output = output.replace("=True", "=true") # for toml formating
         output = output.replace("=False", "=false")
+        # fix bonds formating
+        s = output.split("bonds=")      # NOTE this oly works if the bond list is the last list otherwise everything fucks up
+        s[1] = s[1].replace(" ", "")
+        output = s[0] + "bonds=" + s[1]
+        # finish formating and make it look fancy
         output = output.replace(" ", "\n")
         output = output.replace("=", " = ")
 
