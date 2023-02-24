@@ -1,0 +1,9 @@
+steps = 2000000
+stride = 50
+nbeads = 70
+nchains = 2
+mobility = 5e-05
+number_of_beads = 140
+qbead = 1.524
+fname_sys = '/storage/janmak98/masterthesis/configs/box/test/cfg_box_twoChains_140beads_2Msteps.toml'
+fname_traj = '/storage/janmak98/masterthesis/trajectories/box/test/traj_box_twoChains_140beads_2Msteps.gro'

@@ -1,0 +1,9 @@
+steps = 1000000
+stride = 50
+nbeads = 25
+nchains = 4
+mobility = 5e-05
+number_of_beads = 100
+qbead = 0
+fname_sys = '/storage/janmak98/masterthesis/configs/box/test/cfg_box_testCharges_100beads_1Msteps_0.toml'
+fname_traj = '/storage/janmak98/masterthesis/trajectories/box/test/traj_box_testCharges_100beads_1Msteps_0.gro'
