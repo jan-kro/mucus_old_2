@@ -62,6 +62,10 @@ class Config(BaseModel, arbitrary_types_allowed=True):
                         raise ValueError(f"We expected array for {key} but found None.")
             if key == "cwd":
                 values[key] = os.getcwd()
+                
+            # TODO delete this bs again
+            if key == "lbox":
+                values[key] = values["nbeads"]*2*values["rbead"]
         return values
 
     def __format__(self, __format_spec: str) -> str:

@@ -102,6 +102,7 @@ class Polymer:
             
             if self.box_length is None:
                 self.box_length = self.config.nbeads*self.r0_beeds
+                self.config.lbox = self.box_length
                    
             self.create_shifts()
     
