@@ -67,7 +67,7 @@ def distances(traj):
 
 N = len(cfg_names)
 i = 1
-n_frames = 10000
+n_frames = 1000
 
 now = time.localtime()
 now_str = f"{now.tm_mon:d}.{now.tm_mday}.{now.tm_year}  {now.tm_hour}:{now.tm_min}:{now.tm_sec}"
@@ -83,7 +83,9 @@ for cfg_fname, traj_fname, dist_fname in zip(cfg_names, traj_names, dist_names):
     p = Polymer(cfg)
     p.load_traj_gro(traj_fname, overwrite=True)
 
-    d = distances(p.trajectory[:n_frames])
+    stride = np.round(len(p.trajectory)/n_frames)
+    
+    d = distances(p.trajectory[::stride])
     np.save(dist_fname, d)
     
     print(f'\n{i:d}/{N:d} distances calculated')
