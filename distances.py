@@ -48,7 +48,7 @@ def delete_lbox(cfg_fname):
 # calculate distance matrix trajectory
 def distances(traj):
     n = len(traj[0]) # number of atoms
-    distances = np.zeros((1, n , n))
+    distances = np.zeros((len(traj), n , n))
     
     r_left = np.tile(traj[0], (n, 1, 1)) # repeats vector along third dimension len(a) times
     r_right = np.reshape(np.repeat(traj[0], n, 0), (n, n, 3)) # does the same but "flipped"
@@ -56,14 +56,15 @@ def distances(traj):
     directions = r_left - r_right # this is right considering the mesh method. dir[i, j] = r_j - r_i
     distances[0] = np.linalg.norm(directions, axis=2)
     
-    for frame in traj[1:]:
+    for k, frame in enumerate(traj[1:]):
         r_left = np.tile(frame, (n, 1, 1)) # repeats vector along third dimension len(a) times
         r_right = np.reshape(np.repeat(frame, n, 0), (n, n, 3)) # does the same but "flipped"
 
         directions = r_left - r_right # this is right considering the mesh method. dir[i, j] = r_j - r_i
-        distances = np.append(distances, [np.linalg.norm(directions, axis=2)], axis=0)
+        distances[k+1] = np.linalg.norm(directions, axis=2)
         
     return distances
+
 N = len(cfg_names)
 i = 1
 
