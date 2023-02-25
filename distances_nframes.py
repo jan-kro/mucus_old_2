@@ -83,7 +83,7 @@ for cfg_fname, traj_fname, dist_fname in zip(cfg_names, traj_names, dist_names):
     p = Polymer(cfg)
     p.load_traj_gro(traj_fname, overwrite=True)
 
-    stride = np.round(len(p.trajectory)/n_frames)
+    stride = int(np.round(len(p.trajectory)/n_frames))
     
     d = distances(p.trajectory[::stride])
     np.save(dist_fname, d)
