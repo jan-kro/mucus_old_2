@@ -868,6 +868,13 @@ class Polymer:
         
         return
     
+    def load_traj_ndarray(self, traj):
+        
+        self.trajectory = traj
+        self.positions = traj[-1]
+        
+        return
+    
     def load_traj_gro(self, 
                       fname: str = None,
                       overwrite: bool = False):
@@ -888,7 +895,7 @@ class Polymer:
         
         
         self.positions = self.trajectory[-1]
-        self.get_bonds()
+        self.get_bonds()                        # TODO does this make sense????
         
     def save_config(self):
         """
