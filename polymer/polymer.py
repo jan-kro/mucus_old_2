@@ -79,6 +79,7 @@ class Polymer:
         # self.B_debye            = 1/(self.r_beed*38.46153*np.sqrt(self.c_S)) # TODO check this again
         self.B_debye            = np.sqrt(self.c_S)*self.r0_beeds_nm/10 # from the relationship in the Hansing thesis
         self.indices            = np.arange(self.n_beeds)
+        self.trajectory         = np.zeros((int(np.floor(self.config.steps/self.config.stride))+1, self.n_beeds, 3))
         
         # calculate debye cutoff from salt concentration
         self.cutoff_debye       = config.cutoff_debye
@@ -151,7 +152,7 @@ class Polymer:
         self.positions += np.array((self.box_length/2, self.box_length/2, self.box_length/2)) 
         
         # set first trajecory frame to initial position
-        self.trajectory = np.zeros((1, self.n_beeds, 3)) # first dim is the frame
+        #self.trajectory = np.zeros((1, self.n_beeds, 3)) # first dim is the frame
         self.trajectory[0,:,:] = deepcopy(self.positions)
         
         self.create_shifts()
@@ -220,7 +221,6 @@ class Polymer:
         self.bonds = np.array(bonds)
         self.config.bonds = self.bonds.tolist()
         
-        self.trajectory = np.zeros((1, self.n_beeds, 3))
         self.trajectory[0,:,:] = deepcopy(self.positions)
         
         # create index list
@@ -318,6 +318,13 @@ class Polymer:
         
         self.apply_pbc()
         self.get_bonds()
+        
+        return
+    
+    def set_positions(self, pos):
+        
+        self.positions = pos
+        self.trajectory[0,:,:] = deepcopy(self.positions)
         
         return
     
@@ -791,7 +798,7 @@ class Polymer:
         file_name = f"polymer_{self.n_beeds:d}_beeds"
 
         # create pdb file
-        pdb_file = "topologies/"+file_name+".pdb"
+        pdb_file = self.cwd + "/topologies/"+file_name+".pdb"
 
 
         with open(pdb_file, "w") as f:
@@ -949,7 +956,7 @@ class Polymer:
         self.positions = np.mod(self.positions, self.box_length)
         
         return
-        
+    
     def simulate(self):
         """
         Simulates the brownian motion of the system with the defined forcefield using forward Euler.
@@ -962,6 +969,8 @@ class Polymer:
             self.get_bonds()
         
         t_start = time()
+        
+        idx_traj = 1
         
         for step in range(self.config.steps-1):
             
@@ -986,7 +995,12 @@ class Polymer:
             
             # write trajectory for every stride frames
             if (self.config.write_traj==True) and (step%self.config.stride==0):
-                self.trajectory = np.append(self.trajectory, [self.positions], axis=0)
+                
+                self.trajectory[idx_traj] = self.positions
+                # self.trajectory = np.append(self.trajectory, [self.positions], axis=0)
+                idx_traj += 1
+                
+                # TODO delete last traj frame if it has not been reached (or define it better)
             
             # if np.any(self.distances_bonded > 5):
             #     print("System exploded")

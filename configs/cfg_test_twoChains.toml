@@ -1,0 +1,6 @@
+steps = 13
+stride = 3
+nbeads = 60
+nchains = 2
+number_of_beads = 120
+mobility = 5e-05
