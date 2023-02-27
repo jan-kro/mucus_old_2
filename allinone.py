@@ -162,8 +162,8 @@ cfg7 = {'steps':              600000,
         'fname_traj':         dirs_traj+f"/traj7.gro"}
 
 # cfgs = (cfg1, cfg2, cfg3, cfg4, cfg5, cfg6, cfg7)
-cfgs = (cfg4, cfg5, cfg6, cfg7)
-
+# cfgs = (cfg4, cfg5, cfg6, cfg7)
+cfgs = (cfg1, cfg2, cfg4, cfg7)
 
 # (2) SIMULATE
 
@@ -208,7 +208,7 @@ for cfg_dict in cfgs:
     
     # calculate distances for every 200 steps
     dist = distances(p.trajectory[::200])
-    np.save(dirs_calc+f"dist{k:d}.npy", dist)
+    np.save(dirs_calc+f"/dist{k:d}.npy", dist)
     
     # calculate allinone
     rg, ree, gr = allinone(dist)

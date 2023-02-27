@@ -98,7 +98,10 @@ class Polymer:
             
             if self.cutoff_pbc is None:
                 # NOTE here the cutoff of the force with the longest range is used
-                self.cutoff_pbc = np.max((self.cutoff_debye, self.cutoff_LJ))
+                cutoff = np.max((self.cutoff_debye, self.cutoff_LJ))
+                if cutoff < 1.5*self.r0_beeds:
+                    cutoff = 1.5*self.r0_beeds
+                self.cutoff_pbc = cutoff
                 self.config.cutoff_pbc = self.cutoff_pbc
             
             if self.box_length is None:
@@ -171,15 +174,16 @@ class Polymer:
         
         self.n_beeds = N*M
         
-        if M == 1:
-            self.create_chain(N=N*M)
-            return
-        
         if L is None:
             L = N*r0 # box length
 
         self.box_length = L
         self.config.lbox = L
+        
+        # single chain case
+        if M == 1:
+            self.create_chain(N=N*M)
+            return
         
         n_row = int(np.round(np.sqrt(M)))
 
