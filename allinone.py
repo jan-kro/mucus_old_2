@@ -68,7 +68,8 @@ descriptors = ("#chain nn",
                "#box no charge",
                "#box normal charge",
                "#box double charge",
-               "#box 40mM salt")
+               "#box 40mM salt",
+               "#box 25mM salt")
 
 # create config paths
 dir_data = '/storage/janmak98/masterthesis/pres'
@@ -161,6 +162,17 @@ cfg7 = {'steps':              600000,
         'fname_sys':          dirs_cfg+f"/cfg7.toml",
         'fname_traj':         dirs_traj+f"/traj7.gro"}
 
+cfg8 = {'steps':              600000,
+        'stride':             60,
+        'number_of_beads':    160,
+        'nbeads':             20,
+        'nchains':            8,
+        'mobility':           5e-04,
+        'force_constant':     100.0,
+        'c_S':                40.0,
+        'fname_sys':          dirs_cfg+f"/cfg7.toml",
+        'fname_traj':         dirs_traj+f"/traj7.gro"}
+
 # cfgs = (cfg1, cfg2, cfg3, cfg4, cfg5, cfg6, cfg7)
 # cfgs = (cfg4, cfg5, cfg6, cfg7)
 cfgs = (cfg1, cfg2, cfg4, cfg7)
@@ -168,8 +180,11 @@ cfgs = (cfg1, cfg2, cfg4, cfg7)
 # (2) SIMULATE
 
 # loop through systems
-k = 3
-for cfg_dict in cfgs:
+# indexes = np.arange(len(cfgs))
+indexes = (6, 8)
+for k, cfg_dict in zip(indexes, cfgs):
+    if k == 7:
+        break
     cfg = Config.from_dict(cfg_dict)
     p = Polymer(cfg)
     p.create_box()
@@ -217,7 +232,7 @@ for cfg_dict in cfgs:
     np.save(dirs_calc+f"/ree{k:d}.npy", np.array(ree))
     np.save(dirs_calc+f"/gr{k:d}.npy", np.array(gr))
     
-    k += 1
+    # k += 1
     
     now = time.localtime()
     now_str = f"{now.tm_mon:d}.{now.tm_mday}.{now.tm_year}  {now.tm_hour}:{now.tm_min}:{now.tm_sec}"

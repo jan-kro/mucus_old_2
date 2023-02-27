@@ -79,7 +79,7 @@ class Polymer:
         # self.B_debye            = 1/(self.r_beed*38.46153*np.sqrt(self.c_S)) # TODO check this again
         self.B_debye            = np.sqrt(self.c_S)*self.r0_beeds_nm/10 # from the relationship in the Hansing thesis
         self.indices            = np.arange(self.n_beeds)
-        self.trajectory         = np.zeros((int(np.floor(self.config.steps/self.config.stride))+1, self.n_beeds, 3))
+        self.trajectory         = np.zeros((int(np.ceil(self.config.steps/self.config.stride)), self.n_beeds, 3))
         
         # calculate debye cutoff from salt concentration
         self.cutoff_debye       = config.cutoff_debye
@@ -981,9 +981,9 @@ class Polymer:
         
         t_start = time()
         
-        idx_traj = 1
+        idx_traj = 1 # because traj[0] is already the initial position
         
-        for step in range(self.config.steps-1):
+        for step in range(1, self.config.steps):
             
             # get distances for interactions
             self.get_distances_directions()
@@ -1011,7 +1011,6 @@ class Polymer:
                 # self.trajectory = np.append(self.trajectory, [self.positions], axis=0)
                 idx_traj += 1
                 
-                # TODO delete last traj frame if it has not been reached (or define it better)
             
             # if np.any(self.distances_bonded > 5):
             #     print("System exploded")
