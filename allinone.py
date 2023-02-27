@@ -114,7 +114,7 @@ cfg3 = {'steps':              300000,
         'fname_sys':          dirs_cfg+f"/cfg3.toml",
         'fname_traj':         dirs_traj+f"/traj3.gro"}
 
-cfg4 = {'steps':              500000,
+cfg4 = {'steps':              600000,
         'stride':             60,
         'number_of_beads':    160,
         'nbeads':             20,
@@ -127,7 +127,7 @@ cfg4 = {'steps':              500000,
         'fname_sys':          dirs_cfg+f"/cfg4.toml",
         'fname_traj':         dirs_traj+f"/traj4.gro"}
 
-cfg5 = {'steps':              500000,
+cfg5 = {'steps':              600000,
         'stride':             60,
         'number_of_beads':    160,
         'nbeads':             20,
@@ -150,7 +150,7 @@ cfg6 = {'steps':              500000,
         'fname_sys':          dirs_cfg+f"/cfg6.toml",
         'fname_traj':         dirs_traj+f"/traj6.gro"}
 
-cfg7 = {'steps':              500000,
+cfg7 = {'steps':              600000,
         'stride':             60,
         'number_of_beads':    160,
         'nbeads':             20,
@@ -161,13 +161,14 @@ cfg7 = {'steps':              500000,
         'fname_sys':          dirs_cfg+f"/cfg7.toml",
         'fname_traj':         dirs_traj+f"/traj7.gro"}
 
-cfgs = (cfg1, cfg2, cfg3, cfg4, cfg5, cfg6, cfg7)
+# cfgs = (cfg1, cfg2, cfg3, cfg4, cfg5, cfg6, cfg7)
+cfgs = (cfg4, cfg5, cfg6, cfg7)
 
 
 # (2) SIMULATE
 
 # loop through systems
-k = 0
+k = 3
 for cfg_dict in cfgs:
     cfg = Config.from_dict(cfg_dict)
     p = Polymer(cfg)
@@ -212,9 +213,9 @@ for cfg_dict in cfgs:
     # calculate allinone
     rg, ree, gr = allinone(dist)
     
-    np.save(dirs_calc+f"rg{k:d}.npy", rg)
-    np.save(dirs_calc+f"ree{k:d}.npy", np.array(ree))
-    np.save(dirs_calc+f"gr{k:d}.npy", np.array(gr))
+    np.save(dirs_calc+f"/rg{k:d}.npy", rg)
+    np.save(dirs_calc+f"/ree{k:d}.npy", np.array(ree))
+    np.save(dirs_calc+f"/gr{k:d}.npy", np.array(gr))
     
     k += 1
     
