@@ -70,9 +70,6 @@ def rdf(traj, lbox, cutoff, max_frames=10000, n_bins=300):
     
     for k, frame in enumerate(traj[len(traj)-max_frames:]): #take the last max_frames frames
         
-        if k%100 == 0:
-            print(f"{k:d}/{max_frames:d}")
-        
         for i in range(natoms-1):
 
             # 1 shift atom i to center
