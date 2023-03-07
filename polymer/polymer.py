@@ -332,6 +332,19 @@ class Polymer:
         
         return
     
+    def set_cutoff(self, cutoff, ctype = "pbc"):
+        
+        if ctype.lower() == "pbc":
+            self.cutoff_pbc = cutoff
+        elif ctype.lower() == "lj":
+            self.cutoff_LJ = cutoff
+        elif ctype.lower() == "debye":
+            self.cutoff_debye = cutoff
+        else:
+            raise TypeError(f"Cutoff type \'{ctype:s}\' does not exist.")
+        
+        return
+    
     def get_bonds(self):
         """
         Create list of bond pair indices. 
@@ -394,7 +407,7 @@ class Polymer:
     def dist_dir_edges(self):
         """
         This uses the concept of the "inner-" and "outer edge". Particles are defined to lie in the inner edge, 
-        when thethey are inside the box within the a cutoff distance to the edge of the box. Similarly outer edges
+        when they are inside the box within the a cutoff distance to the edge of the box. Similarly outer edges
         are particles, that are outside of the box within a cutoff distance to the box edge.
         
         This function calculates all the distances and directions of particles in the inner edge w.r.t. particles 
@@ -408,11 +421,15 @@ class Polymer:
         #indexes all atoms inside the inner edge
         L_in = np.logical_or(np.sum(L_left, axis=1, dtype=bool), np.sum(L_right, axis=1, dtype=bool))
 
-        edges_in = self.positions[L_in]
-        edges_in_indices = self.indices[L_in]
+        # edges_in = self.positions[L_in]
+        # edges_in_indices = self.indices[L_in]
 
         # only continue if there are edges_in 
-        if edges_in_indices.size != 0:
+        # if edges_in_indices.size != 0:
+        if np.any(L_in):
+            edges_in = self.positions[L_in]
+            edges_in_indices = self.indices[L_in]
+            
             # shift system and append to array
             edges_out = self.positions + self.shifts[0]
             edges_out_indices = np.arange(self.n_beeds) # NOTE maybe use deepcopy instead? idk what is faster
@@ -445,21 +462,26 @@ class Polymer:
                 idx_table_edges = np.append([idx_in], [idx_out], axis=0)
                 
                 # only output distances smaller than  cutoff
-                L_edges = distances_edges < self.cutoff_pbc
-
+                # TODO THIS IS WROOOONG BECAUSE THE CUTOFF IS CUBIC NOT RADIALL AAAARRRGH
+                # L_edges = distances_edges < self.cutoff_pbc
+                # TODO CHECK IF THIS IS RIGHT AND FIXES THE PROBLEM
+                L_edges = np.sum(np.abs(directions_edges) < self.cutoff_pbc, axis=2, dtype=bool) 
+                
                 dirs = directions_edges[L_edges]
                 dists = distances_edges[L_edges]
                 idxs = idx_table_edges[:, L_edges]
                 
             # if there are no interactions in the edges, output dummy variables since these are not used anyways
             else:
-                dirs = np.array(())
-                dists = np.array(())
-                idxs = np.array(())
+                return
+                # dirs = np.array(())
+                # dists = np.array(())
+                # idxs = np.array(())
         else:
-            dirs = np.array(())
-            dists = np.array(())
-            idxs = np.array(())
+            return
+            # dirs = np.array(())
+            # dists = np.array(())
+            # idxs = np.array(())
         
         return dirs, dists, idxs
     
@@ -482,9 +504,14 @@ class Polymer:
         
         # use cutoff to index values 
         # NOTE this could probably be done in a smarter way
-        distances += self.cutoff_pbc*np.eye(self.n_beeds) # add cutoff to disregard same atoms
+        distances += 2*self.cutoff_pbc*np.eye(self.n_beeds) # add cutoff to disregard same atoms
 
+        # TODO BRUUUUH THIS IS ALSO BS -> SAME AS ABOVE
         L_box = distances < self.cutoff_pbc # NOTE the "<" is important, because if it was "<=" the diagonal values would be included
+        # TODO POSSIBLE FIX: CHECK IF it actually works THINK ABOUT THIS LATER
+        # L_box = np.sum(np.abs(directions) < self.cutoff_pbc, axis=2, dtype=bool)
+        # print(L_box.shape)
+        # print(directions.shape)
         
         dirs = directions[L_box]
         dists = distances[L_box]
@@ -712,7 +739,9 @@ class Polymer:
     
     def plot_distance_distribution(self, 
                                    n_bins: int = 100, 
-                                   bin_interval: tuple = None):
+                                   bin_interval: tuple = None,
+                                   fname = None,
+                                   plot = True):
         """
         Plots a normalized distribution of all bonded distances in the trajectory
         and compares it to the Bolzmann distribution.
@@ -747,7 +776,10 @@ class Polymer:
         plt.xlabel(r"$\Delta\tilde{r}$")
         plt.ylabel(r"$p(\tilde{r})$")
         plt.grid()
-        plt.show()
+        if plot == True:
+            plt.show()
+        if fname is not None:
+            plt.savefig(fname)
         
         return
     
