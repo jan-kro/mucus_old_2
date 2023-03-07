@@ -116,8 +116,6 @@ def report_time(name = "caluclation", report_type = "start", starttime = None):
         return
     
 
-
-
 # create polymer object and load trajectory
 
 cfg = Config.from_toml(sys.argv[1])
@@ -143,6 +141,6 @@ Sq, q = Sq_rdf(gr+1, r, 1/100, qmax=1.5, n=2*512)
 SQ = np.append([q], [Sq], axis = 0).T
 RDF = np.append([r], [gr], axis = 0).T
 
-np.save("/home/janmak98/mucus/SQ.npy", SQ)
-np.save("/home/janmak98/mucus/RDF.npy", SQ)
+np.save(f"/home/janmak98/mucus/SQ_{sys.argv[2]}.npy", SQ)
+np.save(f"/home/janmak98/mucus/RDF_{sys.argv[2]}.npy", SQ)
 
