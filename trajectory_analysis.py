@@ -139,5 +139,5 @@ SQ = np.append([q], [Sq], axis = 0).T
 RDF = np.append([r], [gr], axis = 0).T
 
 np.save(f"/home/janmak98/mucus/SQ_{sys.argv[2]}.npy", SQ)
-np.save(f"/home/janmak98/mucus/RDF_{sys.argv[2]}.npy", SQ)
+np.save(f"/home/janmak98/mucus/RDF_{sys.argv[2]}.npy", RDF)
 
