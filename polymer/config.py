@@ -28,11 +28,14 @@ class Config(BaseModel, arbitrary_types_allowed=True):
     save_traj:          bool                = True
     write_traj:         bool                = True
     cwd:                Optional[str]       = os.getcwd()
+    dir_output:         Optional[str]       = None
     fname_traj:         Optional[str]       = None
     fname_sys:          Optional[str]       = None
     simulation_time:    Optional[float]     = None
     bonds:              Optional[np.ndarray]= None 
 
+    # TODO change config class, so that for every simulation a folder is created which contains all files
+    
     @classmethod
     def from_toml(cls, path):
         data = toml.load(open(path, encoding="UTF-8"))
@@ -50,6 +53,7 @@ class Config(BaseModel, arbitrary_types_allowed=True):
         for the bonds key, either a list, is accepted, which is then turend into a ndarray, or a str is accepted, which specifies a path leading to a saved numpy array
         """
         for key, item in values.items():
+            print(key)
             data_type = cls.__annotations__[key]
             if data_type == Optional[np.ndarray] or data_type == np.ndarray:
                 if item is not None:
@@ -66,6 +70,22 @@ class Config(BaseModel, arbitrary_types_allowed=True):
             # TODO delete this bs again
             if key == "lbox":
                 values[key] = values["nbeads"]*2*values["rbead"]
+                
+            if key == "dir_output":
+                print("hell yes")
+                # if outdir is not specified create outdir
+                if item is None:
+                    nb = values["number_of_beads"]
+                    nstep = values["steps"]
+                    dir_out_tmp = os.getcwd() + f"/systems/sys_{nb:d}beads_{nstep:d}steps"
+                    dir_out = dir_out_tmp
+                    k = 1
+                    while k < 1000:
+                        if os.path.exists(dir_out_tmp):
+                            dir_out = dir_out_tmp + f"_{k:d}"
+                        else:
+                            os.mkdir(dir_out)
+                            break
         return values
 
     def __format__(self, __format_spec: str) -> str:
@@ -133,6 +153,8 @@ class Config(BaseModel, arbitrary_types_allowed=True):
         return
 
 
-# if __name__ == "__main__":
-#     config = Config.from_toml("/home/jan/Documents/masterthesis/project/mucus/configs/tests/cfg_test_box_10_12_0.toml")
-#     print(config)
+if __name__ == "__main__":
+    config = Config.from_toml("/home/jan/Documents/masterthesis/project/mucus/configs/tests/cfg_test_box_10_12_0.toml")
+    print(config.dir_output)
+
+
