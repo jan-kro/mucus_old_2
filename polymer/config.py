@@ -7,6 +7,17 @@ from typing import Optional
 
 
 class Config(BaseModel, arbitrary_types_allowed=True):
+    """
+    The config file contains all the information of the system and where everythin is saved
+    
+    
+    Parameters:
+    -----------
+    
+    dir_output (str):
+        if this is not specified a new output directory will be created in the cwd
+        if a directory is given, everything will be saved in this directory, also if it already exists
+    """
     steps:              int
     stride:             int
     number_of_beads:    int
@@ -34,6 +45,8 @@ class Config(BaseModel, arbitrary_types_allowed=True):
     simulation_time:    Optional[float]     = None
     bonds:              Optional[np.ndarray]= None 
 
+    # TODO add current time and date to properly track everything
+    
     # TODO maybe create a seperate setup function that creates all the necesarry directories and shit
     
     @classmethod
@@ -55,7 +68,8 @@ class Config(BaseModel, arbitrary_types_allowed=True):
             # TODO delete this bs again
             if key == "lbox":
                 values[key] = values["nbeads"]*2*values["rbead"]
-                
+            
+            # create output directory    
             if key == "dir_output":
                 # if outdir is not specified create outdir
                 if item is None:
@@ -64,6 +78,7 @@ class Config(BaseModel, arbitrary_types_allowed=True):
                     dir_out_tmp = os.getcwd() + f"/systems/sys_{nb:d}beads_{nstep:d}steps"
                     dir_out = dir_out_tmp
                     
+                    #check if dir already exists
                     k = 1
                     while os.path.exists(dir_out):
                         dir_out = dir_out_tmp + f"_{k:d}"
@@ -77,6 +92,11 @@ class Config(BaseModel, arbitrary_types_allowed=True):
                     dir_out_sys = dir_out + "/configs"
                     os.makedirs(dir_out_traj)
                     os.makedirs(dir_out_sys)
+                else:
+                    # if dir doesn't exist, create new dir
+                    if os.path.exists(values[key]) == False:
+                        os.makedirs(values[key])
+                    
             
         return values
     
