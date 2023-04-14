@@ -71,6 +71,12 @@ class Config(BaseModel, arbitrary_types_allowed=True):
                         
                     os.makedirs(dir_out)
                     values[key] = dir_out
+                    
+                    # TODO delete again at some point
+                    dir_out_traj = dir_out + "/trajectories"
+                    dir_out_sys = dir_out + "/configs"
+                    os.makedirs(dir_out_traj)
+                    os.makedirs(dir_out_sys)
             
         return values
     

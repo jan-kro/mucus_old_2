@@ -43,16 +43,23 @@ class Polymer:
         self.directions             = None
         self.cm_trajectory          = None
         self.msd                    = None
-        self.structure_factor       = None
+        # self.structure_factor       = None
         self.indices                = None
         self.idx_table              = None
         self.idx_interactions       = None
         self.L_nn                   = None
+        self.number_density         = None
         
         self.setup(config)
-    # TODO save the distance table as trajectory-like object
     
     # TODO: redo the get_bonds() method so that every bond pair only exists once
+    
+    # TODO make subclasses that 
+    #   - handle all the analysis calculations
+    #   - handle all the data organisations 
+    
+    # i.e. 
+    
     
     def setup(self, config):
         self.n_beeds            = config.number_of_beads
@@ -160,7 +167,22 @@ class Polymer:
         
         self.create_shifts()
         self.apply_pbc()
-        self.get_bonds()
+        
+        # create bond list
+        if self.bonds is None: 
+            # if bonds are not already defined, create chain
+            self.bonds =list(())
+            self.bonds.append((0,1))
+            for k in range(1, self.n_beeds-1):
+                self.bonds.append((k, k-1))
+                self.bonds.append((k, k+1))
+            self.bonds.append((self.n_beeds-1, self.n_beeds-2))
+            
+            self.bonds = np.array(self.bonds)
+            self.config.bonds = self.bonds.tolist()                       
+        
+        # calculate distances and directions for every bond tuple
+        self.get_distances_directions()
         
         return
     
@@ -321,7 +343,22 @@ class Polymer:
         self.trajectory[0,:,:] = deepcopy(self.positions)
         
         self.apply_pbc()
-        self.get_bonds()
+        
+        # create bond list
+        if self.bonds is None: 
+            # if bonds are not already defined, create chain
+            self.bonds =list(())
+            self.bonds.append((0,1))
+            for k in range(1, self.n_beeds-1):
+                self.bonds.append((k, k-1))
+                self.bonds.append((k, k+1))
+            self.bonds.append((self.n_beeds-1, self.n_beeds-2))
+            
+            self.bonds = np.array(self.bonds)
+            self.config.bonds = self.bonds.tolist()                       
+        
+        # calculate distances and directions for every bond tuple
+        self.get_distances_directions()
         
         return
     
@@ -345,35 +382,14 @@ class Polymer:
         
         return
     
-    def get_bonds(self):
-        """
-        Create list of bond pair indices. 
-        Bonds are saved twice, i.e.: (..., (i, j), ... , (j, i), ...)
-        """
-        #define bonds
-        if self.bonds is None: 
-            # if bonds are not already defined, create chain
-            self.bonds =list(())
-            self.bonds.append((0,1))
-            for k in range(1, self.n_beeds-1):
-                self.bonds.append((k, k-1))
-                self.bonds.append((k, k+1))
-            self.bonds.append((self.n_beeds-1, self.n_beeds-2))
-            
-            self.bonds = np.array(self.bonds)
-            self.config.bonds = self.bonds.tolist()                       
-        
-        # calculate distances and directions for every bond tuple
-        self.get_distances_directions()
-        
-        return
-    
     def get_distances_directions(self):
         """
         Get distances and directions for every combination of atom within a certain cutoff distance to each other.
         The directions are not normalized, since the normalization happens in the forcefiled calculation.
         A list of index tuples is also calculated to assign the interactions to the specific atoms.
         """
+        
+        # TODO REPLACE DIST/DIR WITH PROPER PBC HANDLING
         
         directions, distances, idx_table = self.dist_dir_box()
         
@@ -464,7 +480,8 @@ class Polymer:
                 # only output distances smaller than  cutoff
                 # TODO THIS IS WROOOONG BECAUSE THE CUTOFF IS CUBIC NOT RADIALL AAAARRRGH
                 # L_edges = distances_edges < self.cutoff_pbc
-                # TODO CHECK IF THIS IS RIGHT AND FIXES THE PROBLEM
+                # TODO CHECK IF THIS IS RIGHT AND FIXES THE PROBLEM 
+                # HINT: It still doesnt work so probably no
                 L_edges = np.sum(np.abs(directions_edges) < self.cutoff_pbc, axis=2, dtype=bool) 
                 
                 dirs = directions_edges[L_edges]
@@ -645,7 +662,7 @@ class Polymer:
                                       r = None):
         """
         Calculates the analytical interatomic potential of two bonded beeds, using 
-        the parameters specified in __init__.
+        the parameters specified in the config.
         This function is used for plotting.
         
         Parameters:
@@ -662,7 +679,7 @@ class Polymer:
         if r is None:
             r = np.linspace(self.r0_beeds-self.r_beed,self.r0_beeds+self.r_beed, 100)
         
-        L_s = 1/(38.46153*self.c_S)
+        #L_s = 1/(38.46153*self.c_S)
         
         u_nn = self.force_constant_nn*(r-self.r0_beeds)**2
         u_LJ = 4*self.epsilon_LJ*(self.sigma_LJ**12/r**12 - self.sigma_LJ**7/r**6 + 1)
@@ -782,48 +799,109 @@ class Polymer:
             plt.savefig(fname)
         
         return
+
     
-    def get_structure_factor(self,
-                        q = None):
+    def rdf(self,
+            r_range = None,
+            n_bins = None,
+            bin_width = 0.05):
+        
+        if r_range is None:
+            r_range = np.array([1.5, self.box_length/2])
+            
+        if n_bins is None:   
+            n_bins = int((r_range[1] - r_range[0]) / bin_width)
+        
+        fname_top = os.path.join(self.cwd, f'topologies/polymer_{self.n_beeds:d}_beeds.pdb')
+
+        if os.path.exists(fname_top) == False:
+            self.create_topology_pdb()
+
+
+        natoms = len(self.trajectory[0])
+        lbox = self.box_length
+
+        # create unic cell information
+        uc_vectors = np.repeat([np.array((lbox, lbox, lbox))], len(self.trajectory), axis=0)
+        uc_angles = np.repeat([np.array((90,90,90))], len(self.trajectory), axis=0)
+
+        # create mdtraj trajectory object
+        trajectory = md.Trajectory(self.trajectory, md.load(fname_top).topology, unitcell_lengths=uc_vectors, unitcell_angles=uc_angles)
+        
+        # create bond pair list
+        pairs = list()
+        for i in range(natoms-1):
+            for j in range(i+1, natoms):
+                pairs.append((i, j))
+                
+        pairs = np.array(pairs)
+        
+        self.number_density = len(pairs) * np.sum(1.0 / trajectory.unitcell_volumes) / natoms / len(trajectory)
+
+        r, gr = md.compute_rdf(trajectory, pairs, r_range=(1.5, 20), bin_width=0.05)
+        
+        return r, gr
+    
+    def get_structure_factor_rdf(self,
+                                 radii  = None,
+                                 g_r    = None, 
+                                 rho    = None, 
+                                 qmax   = 2.0, 
+                                 n      = 1000):
+        
         """
-        Calculates the structure factor of an isotropic system for different wavenumbers q
-        Averaged over the whole trajectory
+        Compute structure factor S(q) from a radial distribution function g(r).
+        The calculation of S(q) can be further simplified by moving some of 
+        the terms outside the sum. I have left it in its current form so that 
+        it matches S(q) expressions found commonly in books and in literature.
         
-        Parametetrs
-            q (ndarray):
-                1D array of wavenumbers
-        """ 
-        if q is None:
-            q = np.linspace(0.01, 0.8, 300) # kinda arbitrary right now
-            # q_vec = q_i - q_s (i=incident, s=scattered), |q_i|=|q_s|=2pi n/lambda
-            # q = 4 pi n/lamda * sin(theta/2)
-            # n... refractive index of the solution
-            # lambda... wavelength of the beam
-            # theta... angle between incident beam and scattered beam
+        Parameters
+        ----------
+        
+        g_r : np.ndarray
+            Radial distribution function, g(r).
+        radii : np.ndarray
+            Independent variable of g(r).
+        rho : float
+            .
+        qmax : floatAverage number density of particles
+            Maximum value of momentum transfer (the independent variable of S(q)).
+        n : int
+            Number of points in S(q).
             
-        # NOTE q could also be calculated using a scattering angle and a wavelength vector:
-        # lam = np.linspace(0.5, 20, 300) # wavelength in reduced units
-        # n = 1.1 # refractive index
-        # theta = 0.05 #scattering angle
-        # q = 4*np.pi*n/lam * np.sin(theta/2)
+        Returns
+        -------
         
-        # NOTE for small angle scattering one could use approximations for better performance
+        Q : np.ndarray
+            Momentum transfer (the independent variable of S(q)).
+        S_q : np.ndarray
+            Structure factor
+        """
+        
+        # calculate rdf, if not given
+        if g_r is None:
+            r, g_r = self.rdf()
             
-        q = np.array(q)
+        if rho is None:
+            rho = self.number_density
         
-        self.structure_factor = np.zeros(len(q))
-               
-        for frame in self.trajectory:
-            for i in range(self.n_beeds-1):
-                for j in range(i+1, self.n_beeds):
-                    r = frame[j] - frame[i] 
-                    qr = q*np.sqrt(np.dot(r, r))
-                    self.structure_factor += np.sin(qr)/qr
+        n_r = len(g_r)
+        Q = np.linspace(0.0, qmax, n)
+        S_q = np.zeros_like(Q)
         
-        #factor 2 because of double sum reduction from i,j to i<j
-        self.structure_factor = self.structure_factor*2/self.n_beeds**2/len(self.trajectory)
+        dr = radii[1] - radii[0]
         
-        return
+        h_r = g_r - 1
+        
+        S_q[0] = np.sum(radii**2*h_r)
+        
+        for q_idx, q in enumerate(Q[1:]):
+            S_q[q_idx+1] = np.sum(radii*h_r*np.sin(q*radii)/q)
+        
+        S_q = 1 + 4*np.pi*rho*dr * S_q / n_r
+        
+        return Q, S_q
+    
     
     def create_topology_pdb(self):
         """
@@ -871,10 +949,10 @@ class Polymer:
             self.create_topology_pdb()
         
         if fname_traj is None:
-            fname_traj = os.path.join(self.cwd, f"trajectories/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro")
+            fname_traj = os.path.join(self.config.dir_output, f"trajectories/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro")
             k = 1
             while os.path.exists(fname_traj):
-                fname_traj = os.path.join(self.cwd, f"trajectories/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro")
+                fname_traj = os.path.join(self.config.dir_output, f"trajectories/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro")
                 k += 1
         else:
             #check if path is given with or without filename
@@ -940,10 +1018,10 @@ class Polymer:
         fname_sys = self.config.fname_sys
         
         if fname_sys is None:
-            fname_sys = os.path.join(self.cwd, f"configs/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu.toml")
+            fname_sys = os.path.join(self.config.dir_output, f"/configs/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu.toml")
             k = 1
             while os.path.exists(fname_sys):
-                fname_sys = os.path.join(self.cwd, f"configs/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu_v{k:d}.toml")
+                fname_sys = os.path.join(self.config.dir_output, f"/configs/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu_v{k:d}.toml")
                 k += 1
         else:
             #check if path is given with or without filename
@@ -968,7 +1046,7 @@ class Polymer:
         output = output.replace("=True", "=true") # for toml formating
         output = output.replace("=False", "=false")
         # fix bonds formating
-        s = output.split("bonds=")      # NOTE this oly works if the bond list is the last list otherwise everything fucks up
+        s = output.split("bonds=")      # NOTE this only works if the bond list is the last list otherwise everything fucks up
         s[1] = s[1].replace(" ", "")
         output = s[0] + "bonds=" + s[1]
         # finish formating and make it look fancy
@@ -1005,11 +1083,12 @@ class Polymer:
         Simulates the brownian motion of the system with the defined forcefield using forward Euler.
         """
         
-        if self.positions is None:
-            self.create_chain()
+        # NOTE This doeasnt make sense enymore
+        # if self.positions is None:
+        #     self.create_chain()
         
-        if self.bonds is None:
-            self.get_bonds()
+        # if self.bonds is None:
+        #     self.get_bonds()
         
         t_start = time()
         

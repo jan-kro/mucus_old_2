@@ -18,6 +18,7 @@ pbc = true
 cutoff_pbc = 4.0
 save_traj = true
 write_traj = true
+dir_output = 'test'
 cwd = '/home/janmak98/mucus'
 fname_traj = '/storage/janmak98/masterthesis/trajectories/box/test/traj_test_box_10_12_0.gro'
 fname_sys = '/home/janmak98/mucus/configs/cfg_test_box_10_12_0.toml'
