@@ -479,10 +479,11 @@ class Polymer:
                 
                 # only output distances smaller than  cutoff
                 # TODO THIS IS WROOOONG BECAUSE THE CUTOFF IS CUBIC NOT RADIALL AAAARRRGH
-                # L_edges = distances_edges < self.cutoff_pbc
+                # NOTE IDK WHAT I AM SAYING ABOVE CUTOFF IS RADIAL IN THIS CASE WTF ITS NOT WRONG
+                L_edges = distances_edges < self.cutoff_pbc
                 # TODO CHECK IF THIS IS RIGHT AND FIXES THE PROBLEM 
                 # HINT: It still doesnt work so probably no
-                L_edges = np.sum(np.abs(directions_edges) < self.cutoff_pbc, axis=2, dtype=bool) 
+                # L_edges = np.sum(np.abs(directions_edges) < self.cutoff_pbc, axis=2, dtype=bool) 
                 
                 dirs = directions_edges[L_edges]
                 dists = distances_edges[L_edges]
@@ -553,12 +554,21 @@ class Polymer:
         
         return
 
-    def get_forces_test(self):
+    def get_forces_test(self, frame = None):
         """
         for testing the forces
         """
+        # if frame is not specified use last frame
+        if frame == None:
+            frame = len(self.trajectory-1)
+        
+        pos_old = np.copy(self.positions)
+        self.set_positions(self.trajectory[frame])
+        
         print("Position")
         print(self.positions)
+        
+        self.get_distances_directions()
         
         #delete old forces
         self.forces = np.zeros((self.n_beeds, 3))
@@ -575,6 +585,9 @@ class Polymer:
         self.force_Debye()
         print("Debye")
         print(self.forces)
+        
+        # reset positions after test
+        self.set_positions(pos_old)
         
         return
     
@@ -812,9 +825,9 @@ class Polymer:
         if n_bins is None:   
             n_bins = int((r_range[1] - r_range[0]) / bin_width)
         
-        fname_top = os.path.join(self.cwd, f'topologies/polymer_{self.n_beeds:d}_beeds.pdb')
+        fname_top = self.config.dir_output + f'/topologies/polymer_{self.n_beeds:d}_beeds.pdb'
 
-        if os.path.exists(fname_top) == False:
+        if not os.path.exists(fname_top):
             self.create_topology_pdb()
 
 
@@ -880,7 +893,7 @@ class Polymer:
         
         # calculate rdf, if not given
         if g_r is None:
-            r, g_r = self.rdf()
+            radii, g_r = self.rdf()
             
         if rho is None:
             rho = self.number_density
@@ -908,15 +921,16 @@ class Polymer:
         Creates a pdb topology of the current system
         """
         
-        
-        file_name = f"polymer_{self.n_beeds:d}_beeds"
-
+        file_name = f"/polymer_{self.n_beeds:d}_beeds.pdb"
+        out_path = self.config.dir_output + "/topologies"
         # create pdb file
-        pdb_file = self.cwd + "/topologies/"+file_name+".pdb"
+        if not os.path.exists(out_path):
+            os.makedirs(out_path)
+        pdb_file = out_path + file_name
 
 
         with open(pdb_file, "w") as f:
-            f.write("HEADER\t"+file_name+"\n")
+            f.write("HEADER\t"+file_name[1:-4]+"\n")
             f.write(f"CRYST1   60.000   60.000   60.000  90.00  90.00  90.00 P 1           1 \n")
             
             # create chain along the x-axis
@@ -942,17 +956,19 @@ class Polymer:
         Saves trajectory in a gromacs trajectory, using mdtraj
         """
         fname_traj = self.config.fname_traj
+        path_traj = self.config.dir_output + "/trajectories"
         
-        fname_top = os.path.join(self.cwd, f'topologies/polymer_{self.n_beeds:d}_beeds.pdb')
+        # todo create topology in outdir
+        fname_top = self.config.dir_output + f'/topologies/polymer_{self.n_beeds:d}_beeds.pdb'
 
         if os.path.exists(fname_top) == False:
             self.create_topology_pdb()
         
         if fname_traj is None:
-            fname_traj = os.path.join(self.config.dir_output, f"trajectories/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro")
+            fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro"
             k = 1
-            while os.path.exists(fname_traj):
-                fname_traj = os.path.join(self.config.dir_output, f"trajectories/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro")
+            while os.path.exists(path_traj + fname_traj):
+                fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro"
                 k += 1
         else:
             #check if path is given with or without filename
@@ -961,7 +977,6 @@ class Polymer:
                 # take care of input ambiguity
                 if fname_traj[-1:] == "/":
                     fname_traj = fname_traj[:-1]
-                path_traj = fname_traj
                 
                 fname_traj = path_traj + f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro"
                 # don't overwrite trajectories 
@@ -978,7 +993,7 @@ class Polymer:
         trajectory = md.Trajectory(self.trajectory, topology)
 
         # save as gromacs file
-        trajectory.save_gro(filename=fname_traj)
+        trajectory.save_gro(filename=path_traj + fname_traj)
         
         return
     
@@ -1016,12 +1031,13 @@ class Polymer:
         saves current self.config in a .toml file 
         """
         fname_sys = self.config.fname_sys
+        path_sys = self.config.dir_output + "/configs"
         
         if fname_sys is None:
-            fname_sys = os.path.join(self.config.dir_output, f"/configs/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu.toml")
+            fname_sys = f"/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu.toml"
             k = 1
-            while os.path.exists(fname_sys):
-                fname_sys = os.path.join(self.config.dir_output, f"/configs/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu_v{k:d}.toml")
+            while os.path.exists(path_sys + fname_sys):
+                fname_sys = f"/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu_v{k:d}.toml"
                 k += 1
         else:
             #check if path is given with or without filename
@@ -1030,14 +1046,10 @@ class Polymer:
                 # take care of input ambiguity
                 if fname_sys[-1:] == "/":
                     fname_sys = fname_sys[:-1]
-                
-                path_sys = fname_sys
-                
-                fname_sys = path_sys + f"/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu.toml"
                 # don't overwrite trajectories 
                 k = 1
-                while os.path.exists(fname_sys):
-                    fname_sys = path_sys + f"/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu_v{k:d}.toml"
+                while os.path.exists(path_sys + fname_sys):
+                    fname_sys = f"/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu_v{k:d}.toml"
                     k += 1
         
         self.config.fname_sys = fname_sys
@@ -1053,7 +1065,7 @@ class Polymer:
         output = output.replace(" ", "\n")
         output = output.replace("=", " = ")
 
-        f = open(fname_sys, "w")
+        f = open(path_sys + fname_sys, "w")
         f.write(output)
         f.close()
         
@@ -1078,7 +1090,7 @@ class Polymer:
         
         return
     
-    def simulate(self):
+    def simulate(self, steps=None):
         """
         Simulates the brownian motion of the system with the defined forcefield using forward Euler.
         """
@@ -1090,11 +1102,14 @@ class Polymer:
         # if self.bonds is None:
         #     self.get_bonds()
         
+        if steps == None:
+            steps = self.config.steps
+        
         t_start = time()
         
         idx_traj = 1 # because traj[0] is already the initial position
         
-        for step in range(1, self.config.steps):
+        for step in range(1, steps):
             
             # get distances for interactions
             self.get_distances_directions()

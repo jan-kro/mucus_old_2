@@ -17,6 +17,7 @@ class Config(BaseModel, arbitrary_types_allowed=True):
     dir_output (str):
         if this is not specified a new output directory will be created in the cwd
         if a directory is given, everything will be saved in this directory, also if it already exists
+        must be given in the format /root/
     """
     steps:              int
     stride:             int
@@ -93,10 +94,29 @@ class Config(BaseModel, arbitrary_types_allowed=True):
                     os.makedirs(dir_out_traj)
                     os.makedirs(dir_out_sys)
                 else:
-                    # if dir doesn't exist, create new dir
-                    if os.path.exists(values[key]) == False:
-                        os.makedirs(values[key])
+                    dir_out = values[key]
                     
+                    # if dir doesn't exist, create new dir
+                    if not os.path.exists(dir_out):
+                        os.makedirs(dir_out, )
+                        
+                    # TODO delete again at some point
+                    dir_out_traj = dir_out + "/trajectories"
+                    dir_out_sys = dir_out + "/configs"
+                    if not os.path.exists(dir_out_traj):
+                        os.makedirs(dir_out_traj)
+                    if not os.path.exists(dir_out_sys):
+                        os.makedirs(dir_out_sys)
+            
+            #check if traj/sys formatting is right            
+            if key == "fname_traj":
+                if item is not None:
+                    if item[0] != "/":
+                        values[key] = "/"+item
+            if key == "fname_sys":
+                if item is not None:
+                    if item[0] != "/":
+                        values[key] = "/"+item
             
         return values
     
