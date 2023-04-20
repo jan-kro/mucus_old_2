@@ -1,6 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from plot_box import plot_box
 from polymer import Config, Polymer
 import time
 import datetime
@@ -57,29 +55,22 @@ pos += np.array((l_diff/2, l_diff/2, lbox/2))
 # create bond list
 bonds = list(())
 for i in range(4):
-    bonds.append((i*nbpc, 1))
+    bonds.append((i*nbpc, i*nbpc+1))
     for k in range(i*nbpc + 1, (i+1)*nbpc-1):
         bonds.append((k, k-1))
         bonds.append((k, k+1))
     bonds.append((k+1, k))
-    
-# create second bond list where the mesh is periodically connected
-bonds = list(())
-for i in range(4):
-    bonds.append((i*nbpc, 1))
-    for k in range(i*nbpc + 1, (i+1)*nbpc-1):
-        bonds.append((k, k-1))
-        bonds.append((k, k+1))
-    bonds.append((k+1, k))
+
     
 # create config file
-config_dict = {'steps': 10000, 
-               'stride': 10, 
+config_dict = {'steps': 1000000, 
+               'stride': 40, 
                'number_of_beads': nbpc*4, 
                'nbeads': nbpc, 
                'nchains': 4, 
                'mobility': 5e-05,
-               'dir_output': '\"/storage/janmak98/masterthesis/ouput/mesh\"',
+               'qbead': 0,
+               'dir_output': '/storage/janmak98/masterthesis/ouput/mesh',
                'bonds': bonds}
 
 cfg = Config.from_dict(config_dict)

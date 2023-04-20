@@ -941,10 +941,14 @@ class Polymer:
             f.write(f"TER    {k+2:4d}      HET X {k+1:3d}\n")
             
             # add bonds
+            
+            # TODO change, so that bondsare created from self.bonds
+            # if self.bonds is None:
             f.write(f"CONECT{1:5d}{2:5d}\n") #first beed
             for k in range(2, self.n_beeds):
                 f.write(f"CONECT{k:5d}{k-1:5d}{k+1:5d}\n") #middle beeds
             f.write(f"CONECT{self.n_beeds:5d}{self.n_beeds-1:5d}\n") #last beed
+                    
             
             f.write("END\n")
             f.close()
@@ -975,18 +979,18 @@ class Polymer:
             # if not the input will be interpreted as a directory
             if fname_traj[-4:] != ".gro":
                 # take care of input ambiguity
-                if fname_traj[-1:] == "/":
+                if fname_traj[-1] == "/":
                     fname_traj = fname_traj[:-1]
                 
-                fname_traj = path_traj + f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro"
+                fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro"
                 # don't overwrite trajectories 
                 k = 1
-                while os.path.exists(fname_traj):
-                    fname_traj = path_traj + f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro"
+                while os.path.exists(path_traj + fname_traj):
+                    fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro"
                     k += 1
         
         # save to config
-        self.config.fname_traj = fname_traj
+        self.config.fname_traj = fname_traj[1:]
         
         # save trajectory in mdtraj to create .gro simulation trajectory
         topology = md.load(fname_top).topology
@@ -996,6 +1000,73 @@ class Polymer:
         trajectory.save_gro(filename=path_traj + fname_traj)
         
         return
+    
+    def create_fname(self, filetype="gro"):
+        """
+        creates an outfile str for a specified filetype
+        """
+        if filetype == "gro":
+            fname_traj = self.config.fname_traj
+            path_traj = self.config.dir_output + "/trajectories"
+            
+            if fname_traj is None:
+                fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro"
+                k = 1
+                while os.path.exists(path_traj + fname_traj):
+                    fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro"
+                    k += 1
+                
+            else:
+                #check if path is given with or without filename
+                # if not the input will be interpreted as a directory
+                if fname_traj[-4:] != ".gro":
+                    # take care of input ambiguity
+                    if fname_traj[-1:] == "/":
+                        fname_traj = fname_traj[:-1]
+                    
+                    fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro"
+                    # don't overwrite trajectories 
+                    k = 1
+                    while os.path.exists(path_traj + fname_traj):
+                        fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro"
+                        k += 1
+            
+            # save to config
+            self.config.fname_traj = fname_traj
+            fname = path_traj + fname_traj
+        
+        return fname
+    
+    def write_frame_gro(self, n_atoms, coordinates, time, fname, comment="", box=None, precision=3):
+
+        f = open(fname, "a")
+
+        comment += ', t= %s' % time
+
+        varwidth = precision + 5
+        fmt = '%%5d%%-5s%%5s%%5d%%%d.%df%%%d.%df%%%d.%df' % (
+                varwidth, precision, varwidth, precision, varwidth, precision)
+
+        lines = [comment, ' %d' % n_atoms]
+        # if box is None:
+        #     box = np.zeros((3,3))
+
+        for i in range(n_atoms):
+            lines.append(fmt % (i+1, "HET", "CA", i+1,
+                                coordinates[i, 0], coordinates[i, 1], coordinates[i, 2]))
+            # lines.append(fmt % (residue.resSeq, residue.name, atom.name, serial,
+            #                     coordinates[i, 0], coordinates[i, 1], coordinates[i, 2]))
+
+        # lines.append('%10.5f%10.5f%10.5f%10.5f%10.5f%10.5f%10.5f%10.5f%10.5f' % (
+        #     box[0,0], box[1,1], box[2,2],
+        #     box[0,1], box[0,2], box[1,0],
+        #     box[1,2], box[2,0], box[2,1]))
+
+        lines.append('%10.5f%10.5f%10.5f%10.5f%10.5f%10.5f%10.5f%10.5f%10.5f' % (0,0,0,0,0,0,0,0,0))
+        
+        f.write('\n'.join(lines))
+        f.write('\n')
+        f.close()
     
     def load_traj_ndarray(self, traj):
         
@@ -1109,6 +1180,8 @@ class Polymer:
         
         idx_traj = 1 # because traj[0] is already the initial position
         
+        fname_traj = self.create_fname(filetype="gro")
+        
         for step in range(1, steps):
             
             # get distances for interactions
@@ -1131,12 +1204,19 @@ class Polymer:
             #self.positions = deepcopy(self.positions_new)
             
             # write trajectory for every stride frames
+            # if (self.config.write_traj==True) and (step%self.config.stride==0):
+                
+            #     self.trajectory[idx_traj] = self.positions
+            #     # self.trajectory = np.append(self.trajectory, [self.positions], axis=0)
+            #     idx_traj += 1
+            
             if (self.config.write_traj==True) and (step%self.config.stride==0):
-                
-                self.trajectory[idx_traj] = self.positions
-                # self.trajectory = np.append(self.trajectory, [self.positions], axis=0)
+                # if self.config.write_traj==True:
+                #     self.trajectory[idx_traj] = self.positions
+                    
+                # TODO add condition for direct writing
+                self.write_frame_gro(self.n_beeds, self.positions, idx_traj, fname_traj, comment=f"Traj step {step:d}")
                 idx_traj += 1
-                
             
             # if np.any(self.distances_bonded > 5):
             #     print("System exploded")
