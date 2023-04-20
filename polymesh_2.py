@@ -4,55 +4,68 @@ import time
 import datetime
 
 # here i want to create four intertwined sinusioidal chains in a mesh like (#) shape
+# create meshed system that is connected at the boundaries
 
-nbpc = 200 # number of beads per chain
 r0 = 2 # beed-beed distance
-lbox = r0*nbpc # naive box length
-
-omega = 2*np.pi/(r0*nbpc) # approximate wavelength as the chain length (works only well for long chains)
+amplitude = 5*r0
+lbox_naive = r0*100
+omega = 2*np.pi/(lbox_naive) # approximate wavelength as the chain length (works only well for long chains)
 
 # create one chain and then copy it
 # chain lies in the yz plane and goes in y direction 
 
 # start by creating a sine wave containing 10 times the amount of points  
-x = np.linspace(0, r0*nbpc, 10*nbpc)
-y = 0.5*r0*np.sin(omega*x)
+x = np.linspace(0, lbox_naive, 100*lbox_naive)
+y = amplitude*np.sin(omega*x)
 r_sin = np.array([np.zeros(len(x)), x, y]).T
 
 
-pos1 = np.zeros((nbpc, 3)) # positions
+# to use np.append the initial array must be 2 dimensional
+# this will be deleted in the end
+pos1 = np.array(((0,0,0), (0,0,0)))
 
 idx_sin = np.arange(len(r_sin))
-# the first position is [0 0 0] so the loop starts at idx 1
-for i in range(1, nbpc):
+
+
+i = 2
+while pos1[-1, 1] < lbox_naive:
     r = r_sin - pos1[i-1, :]
     d = np.linalg.norm(r, axis=1)
     L = np.abs(d-r0) == min(np.abs(d-r0))
-    pos1[i, :] = r_sin[L, :]
+    pos1 = np.append(pos1, r_sin[L, :], axis=0)
     # cut r sin so that the next point can only go in one direction
     r_sin = r_sin[int(idx_sin[L]):]
     idx_sin = np.arange(len(r_sin))
-    
+    i += 1
+
+pos1 = pos1[1:]
+
+nbpc = len(pos1)
+
+lxchain = pos1[-1, 1]
+lbox = pos1[-1, 1] + pos1[1,1]
+
 # copy and shift to grid shape
 pos2 = np.array([pos1[:, 0],pos1[:, 1], -pos1[:, 2]]).T
-pos2[:, 0] += lbox/2 + r0*nbpc/4
+pos2[:, 0] += lbox/2 + lxchain/4
 
 pos3 = np.array([pos2[:, 1],pos2[:, 0], pos2[:, 2]]).T
 pos4 = np.array([pos1[:, 1],pos1[:, 0], pos1[:, 2]]).T
 
-pos1[:, 0] += r0*nbpc/4
-pos3[:, 1] = r0*nbpc/4
-pos4[:, 1] = r0*nbpc/4 + lbox/2
+pos1[:, 0] += lxchain/4
+pos3[:, 1] = lxchain/4
+pos4[:, 1] = lxchain/4 + lbox/2
 
 # concatenate arrays
 pos = np.concatenate([pos1, pos2, pos3, pos4])
 
 # shift so everything is centered
-lx_chain = np.abs(pos1[0,1] - pos1[nbpc-1,1])
+lx_chain = np.abs(pos1[0,1] - pos1[-1,1])
 l_diff = lbox - lx_chain
 pos += np.array((l_diff/2, l_diff/2, lbox/2))
 
-# create bond list
+# create bond list where the first and last bead are connected
+print(nbpc)
 bonds = list(())
 for i in range(4):
     bonds.append((i*nbpc, i*nbpc+1))
@@ -60,6 +73,7 @@ for i in range(4):
         bonds.append((k, k-1))
         bonds.append((k, k+1))
     bonds.append((k+1, k))
+    bonds.append((k+1, i*nbpc))
 
     
 # create config file
@@ -70,8 +84,11 @@ config_dict = {'steps': 1000000,
                'nchains': 4, 
                'mobility': 5e-05,
                'qbead': 0,
-               'dir_output': '/storage/janmak98/masterthesis/ouput/mesh',
-               'bonds': bonds}
+               'dir_output': '/storage/janmak98/masterthesis/ouput/mesh2',
+               'bonds': list(bonds)}
+
+#/storage/janmak98/masterthesis/ouput/mesh2
+# /home/jan/Documents/masterthesis/project/mucus/systems/mesh2
 
 cfg = Config.from_dict(config_dict)
 p = Polymer(cfg)
