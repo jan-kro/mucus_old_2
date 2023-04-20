@@ -8,7 +8,7 @@ import datetime
 
 r0 = 2 # beed-beed distance
 amplitude = 5*r0
-lbox_naive = r0*100
+lbox_naive = r0*10
 omega = 2*np.pi/(lbox_naive) # approximate wavelength as the chain length (works only well for long chains)
 
 # create one chain and then copy it
@@ -82,12 +82,12 @@ config_dict = {'steps': 1000000,
                'number_of_beads': nbpc*4, 
                'nbeads': nbpc, 
                'nchains': 4, 
-               'mobility': 5e-05,
+               'mobility': 1e-03,
                'qbead': 0,
                'dir_output': '/storage/janmak98/masterthesis/ouput/mesh2',
                'bonds': list(bonds)}
 
-#/storage/janmak98/masterthesis/ouput/mesh2
+# /storage/janmak98/masterthesis/ouput/mesh2
 # /home/jan/Documents/masterthesis/project/mucus/systems/mesh2
 
 cfg = Config.from_dict(config_dict)
@@ -110,8 +110,9 @@ print("simulation finished ", now_str)
 
 print("simulation time: ", datetime.timedelta(seconds=round(p.config.simulation_time)))
 
-print("\nsave system...")
-p.save_system()
+# print("\nsave system...")
+# p.save_system()
+p.save_config()
 
 # os.mkdir(p.config.dir_output+f"/Sq")
 

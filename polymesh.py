@@ -68,7 +68,7 @@ config_dict = {'steps': 1000000,
                'number_of_beads': nbpc*4, 
                'nbeads': nbpc, 
                'nchains': 4, 
-               'mobility': 5e-05,
+               'mobility': 1e-03,
                'qbead': 0,
                'dir_output': '/storage/janmak98/masterthesis/ouput/mesh',
                'bonds': bonds}

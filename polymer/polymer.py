@@ -384,6 +384,57 @@ class Polymer:
     
     def get_distances_directions(self):
         """
+        updated dist/dir calculation that uses MINIMUM IMAGE CONVENTION, not my bs!
+        """
+        
+        # TODO could be faster by only calculating triu matrix
+
+        # shift box to center
+        # TODO DELETE THIS LATER
+        
+        self.positions -= np.array((self.box_length/2, self.box_length/2, self.box_length/2))
+        
+        # make 3d verion of meshgrid
+        r_left = np.tile(self.positions, (self.n_beeds, 1, 1)) # repeats vector along third dimension len(a) times
+        r_right = np.reshape(np.repeat(self.positions, self.n_beeds, 0), (self.n_beeds, self.n_beeds, 3)) # does the same but "flipped"
+
+        directions = r_left - r_right # this is right considering the mesh method. dir[i, j] = r_j - r_i
+
+        # apply minimum image convetion
+        directions -= self.box_length*np.round(directions/self.box_length)
+
+        # calculate distances and apply interaction cutoff
+        distances = np.linalg.norm(directions, axis=2)
+
+        # add cutoff to the self distances so they are not indiced in the intereftions 
+        # NOTE this could probably be done in a smarter way
+        distances += 2*self.cutoff_pbc*np.eye(self.n_beeds) # add cutoff to disregard same atoms
+        L_box = distances < self.cutoff_pbc # NOTE the "<" is important, because if it was "<=" the diagonal values would be included
+        
+        # only save dist/dir, that lie within the interaction cutoff
+        self.directions = directions[L_box]
+        self.distances  = distances[L_box]
+        self.idx_interactions = self.idx_table[:, L_box].T
+
+        # shift box back again
+        # TODO delete later
+        self.positions += np.array((self.box_length/2, self.box_length/2, self.box_length/2))
+        
+        # loop through index list and see if any tuple corresponds to bond        
+        L_nn = list(())
+        for idx in self.idx_interactions:
+            if np.any(np.logical_and(idx[0] == self.bonds[:, 0], idx[1] == self.bonds[:, 1])):
+                L_nn.append(True)
+            else:
+                L_nn.append(False)
+                
+        self.L_nn = L_nn
+        
+        return
+    
+    
+    def get_distances_directions_old(self):
+        """
         Get distances and directions for every combination of atom within a certain cutoff distance to each other.
         The directions are not normalized, since the normalization happens in the forcefiled calculation.
         A list of index tuples is also calculated to assign the interactions to the specific atoms.
