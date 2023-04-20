@@ -93,8 +93,9 @@ print("simulation finished ", now_str)
 
 print("simulation time: ", datetime.timedelta(seconds=round(p.config.simulation_time)))
 
-print("\nsave system...")
-p.save_system()
+# print("\nsave system...")
+# p.save_system()
+p.save_config()
 
 # os.mkdir(p.config.dir_output+f"/Sq")
 
