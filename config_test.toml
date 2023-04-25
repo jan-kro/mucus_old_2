@@ -1,8 +1,0 @@
-steps = 1000
-stride = 50
-nbeads = 10
-nchains = 8
-mobility = 0.00005
-cwd = "/home/janmak98/mucus/"
-fname_traj = "/storage/janmak98/masterthesis/trajectories/box"
-fname_sys = "/storage/janmak98/masterthesis/configs/box"

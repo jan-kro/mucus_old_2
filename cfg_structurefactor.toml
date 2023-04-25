@@ -1,8 +1,9 @@
-steps              = 200
+steps              = 20
 stride             = 1
 number_of_beads    = 40
 nbeads             = 10
 nchains            = 4
-mobility           = 1e-05
+mobility           = 1e-03
 qbead              = 0
-dir_output         = "/home/jan/Documents/masterthesis/project/results/structure_factor_2"
+name_sys           = "sq_test"
+dir_output         = "/home/jan/Documents/masterthesis/project/results"

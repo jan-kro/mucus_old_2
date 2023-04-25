@@ -6,6 +6,7 @@ import os
 
 from polymer.config import Config
 from time import time
+from pathlib import Path
 
 from copy import deepcopy
 
@@ -50,9 +51,12 @@ class Polymer:
         self.L_nn                   = None
         self.number_density         = None
         
+        self.overwrite_switch       = False
+        self.version                = ""
+        
         self.setup(config)
     
-    # TODO: redo the get_bonds() method so that every bond pair only exists once
+    # TODO: redo the bond list so that every bond pair only exists once
     
     # TODO make subclasses that 
     #   - handle all the analysis calculations
@@ -116,12 +120,20 @@ class Polymer:
                 self.config.lbox = self.box_length
                    
             self.create_shifts()
+        
+        self.create_topology_pdb()
     
     def print_sim_info(self):
         """
         print the config without the bonds
         """
-        output = str(self.config).split("bonds")[0]
+        
+        # this is done so the version is printed but the class variable is not updated
+        cfg = deepcopy(self.config)
+        cfg.name_sys = self.config.name_sys + self.version
+        
+        # print everything but bonds
+        output = str(cfg).split("bonds")[0]
         output = output.replace(" ", "\n")
         output = output.replace("=", " = ")
         print(output)
@@ -132,7 +144,6 @@ class Polymer:
                      axis: int = 0):
         """
         Create linear chain along specified axis, centered in the origin.
-        The get_bonds() method is called here automatically.
         
         Arguments:
             axis (int): specify on which axis the chain lies on (0,1,2) -> (x,y,z)
@@ -302,7 +313,6 @@ class Polymer:
         Create linear chain along specified axis, centered in the origin.
         The positions of the linear chain are deviated wit a gaussian noise 
         of standard deviation sigma.
-        The get_bonds() method is called here automatically.
         
         Arguments:
             sigma (float): standard deviation for the displacement
@@ -868,7 +878,9 @@ class Polymer:
     def rdf(self,
             r_range = None,
             n_bins = None,
-            bin_width = 0.05):
+            bin_width = 0.05,
+            save=True,
+            overwrite=False):
         
         if r_range is None:
             r_range = np.array([1.5, self.box_length/2])
@@ -876,7 +888,7 @@ class Polymer:
         if n_bins is None:   
             n_bins = int((r_range[1] - r_range[0]) / bin_width)
         
-        fname_top = self.config.dir_output + f'/topologies/polymer_{self.n_beeds:d}_beeds.pdb'
+        fname_top = self.create_fname(filetype="topology")
 
         if not os.path.exists(fname_top):
             self.create_topology_pdb()
@@ -904,14 +916,20 @@ class Polymer:
 
         r, gr = md.compute_rdf(trajectory, pairs, r_range=(1.5, 20), bin_width=0.05)
         
+        if save == True:
+            fname = self.create_fname(filetype="rdf", overwrite=overwrite)
+            np.save(fname, np.array([r, gr]))
+        
         return r, gr
     
     def get_structure_factor_rdf(self,
-                                 radii  = None,
-                                 g_r    = None, 
-                                 rho    = None, 
-                                 qmax   = 2.0, 
-                                 n      = 1000):
+                                 radii      = None,
+                                 g_r        = None,     
+                                 rho        = None, 
+                                 qmax       = 2.0, 
+                                 n          = 1000,
+                                 save       = True,
+                                 overwrite  = False):
         
         """
         Compute structure factor S(q) from a radial distribution function g(r).
@@ -932,6 +950,8 @@ class Polymer:
             Maximum value of momentum transfer (the independent variable of S(q)).
         n : int
             Number of points in S(q).
+        save : bool (default: True)
+            Wether the [Q, S_q] should be saved in an .npy file
             
         Returns
         -------
@@ -944,7 +964,7 @@ class Polymer:
         
         # calculate rdf, if not given
         if g_r is None:
-            radii, g_r = self.rdf()
+            radii, g_r = self.rdf(overwrite=overwrite)
             
         if rho is None:
             rho = self.number_density
@@ -964,24 +984,23 @@ class Polymer:
         
         S_q = 1 + 4*np.pi*rho*dr * S_q / n_r
         
+        if save == True:
+            fname = self.create_fname(filetype="structure_factor", overwrite=overwrite)
+            np.save(fname, np.array([Q, S_q]))
+        
         return Q, S_q
     
     
-    def create_topology_pdb(self):
+    def create_topology_pdb(self, overwrite=False):
         """
         Creates a pdb topology of the current system
         """
         
-        file_name = f"/polymer_{self.n_beeds:d}_beeds.pdb"
-        out_path = self.config.dir_output + "/topologies"
-        # create pdb file
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
-        pdb_file = out_path + file_name
+        pdb_file = self.create_fname(filetype="topology", overwrite=overwrite)
 
 
         with open(pdb_file, "w") as f:
-            f.write("HEADER\t"+file_name[1:-4]+"\n")
+            f.write("HEADER\t"+self.config.name_sys+"\n")
             f.write(f"CRYST1   60.000   60.000   60.000  90.00  90.00  90.00 P 1           1 \n")
             
             # create chain along the x-axis
@@ -993,7 +1012,7 @@ class Polymer:
             
             # add bonds
             
-            # TODO change, so that bondsare created from self.bonds
+            # TODO change, so that bonds are created from self.bonds
             # if self.bonds is None:
             f.write(f"CONECT{1:5d}{2:5d}\n") #first beed
             for k in range(2, self.n_beeds):
@@ -1052,39 +1071,54 @@ class Polymer:
         
         return
     
-    def create_fname(self, filetype="gro"):
+    def create_fname(self, filetype="trajectory", overwrite=False):
         """
-        creates an outfile str for a specified filetype
+        Creates an outfile str for a specified filetype. If the directory does not exist, it is created.
+        The overwrite call checks if the system name already exists in the output directory. If it does, 
+        a version str (_vXX) is appended to the system name. 
+        
+        Filetypes:
+            trajectory  
+            topology
+            config
+            bonds
+            structure_factor
+            rdf
         """
-        if filetype == "gro":
-            fname_traj = self.config.fname_traj
-            path_traj = self.config.dir_output + "/trajectories"
-            
-            if fname_traj is None:
-                fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro"
-                k = 1
-                while os.path.exists(path_traj + fname_traj):
-                    fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro"
+        
+        # if the system should not be overwritten change the version
+        # TODO change this so every file is checked (by looping through config_dict)
+        if overwrite == False:
+            if self.overwrite_switch == False:
+                self.overwrite_switch = True # this prevents the version from update everytime create_fname() is called 
+                k = 0
+                # check both if either a trajectory or a config already exists
+                dir_cfg = self.config.dir_output + "/configs/cfg_" + self.config.name_sys + ".toml"
+                dir_traj = self.config.dir_output + "/trajectories/traj_" + self.config.name_sys + ".gro"
+                while os.path.exists(dir_cfg) or os.path.exists(dir_traj):
+                    self.version = f"_v{k:d}" # update version until no files are found
+                    dir_cfg = self.config.dir_output + "/configs/cfg_" + self.config.name_sys + self.version + ".toml"
+                    dir_traj = self.config.dir_output + "/trajectories/traj_" + self.config.name_sys + self.version +".gro"
                     k += 1
-                
-            else:
-                #check if path is given with or without filename
-                # if not the input will be interpreted as a directory
-                if fname_traj[-4:] != ".gro":
-                    # take care of input ambiguity
-                    if fname_traj[-1:] == "/":
-                        fname_traj = fname_traj[:-1]
-                    
-                    fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu.gro"
-                    # don't overwrite trajectories 
-                    k = 1
-                    while os.path.exists(path_traj + fname_traj):
-                        fname_traj = f"/traj_{self.n_beeds:d}beeds_{len(self.trajectory):d}frames_{self.mobility:.5f}mu_v{k:d}.gro"
-                        k += 1
             
-            # save to config
-            self.config.fname_traj = fname_traj
-            fname = path_traj + fname_traj
+            version = self.version
+        else:
+            version = ""
+        
+        dir_dict = {"trajectory": ("/trajectories/traj_", ".gro"),
+                    "topology": ("/topologies/top_", ".pdb"),
+                    "config": ("/configs/cfg_",".toml"),
+                    "bonds": ("/bonds/bonds_", ".npy"),
+                    "rdf": ("/results/rdf/rdf_", ".npy"),
+                    "structure_factor": ("/results/structure_factor/Sq_", ".npy")}
+        
+        # create outfile string
+        fname = self.config.dir_output + dir_dict[filetype][0] + self.config.name_sys + version + dir_dict[filetype][1]
+        
+        # make dir if path doesnt exist
+        path = Path(fname).parent
+        if os.path.exists(path) == False:
+            os.makedirs(path)
         
         return fname
     
@@ -1131,50 +1165,33 @@ class Polymer:
                       overwrite: bool = False):
          
         if fname is None:
-            raise TypeError("Error: provide filename")
-        if os.path.exists(fname) != True:
+            fname = self.create_fname(filetype="trajectory", overwrite=overwrite)
+        if os.path.exists(fname) == False:
             raise TypeError(f"Error: file \"{fname:s}\" does not exist")
         
         if overwrite == False:
             # TODO remove the "or" once the initialisation is fixed
             if (self.trajectory is None) or (len(self.trajectory<2)):
-                raise Exception("Error: Polymer object already has a trajectory")
-            else:
                 self.trajectory = md.load(fname).xyz
+            else:
+                raise Exception("Error: Polymer object already has a trajectory")
         else:
             self.trajectory = md.load(fname).xyz
         
         
         self.positions = self.trajectory[-1]
-        self.get_bonds()                        # TODO does this make sense????
         
-    def save_config(self):
+    def save_config(self, overwrite=False):
         """
         saves current self.config in a .toml file 
         """
-        fname_sys = self.config.fname_sys
-        path_sys = self.config.dir_output + "/configs"
         
-        if fname_sys is None:
-            fname_sys = f"/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu.toml"
-            k = 1
-            while os.path.exists(path_sys + fname_sys):
-                fname_sys = f"/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu_v{k:d}.toml"
-                k += 1
-        else:
-            #check if path is given with or without filename
-            # if not the input will be interpreted as a directory
-            if fname_sys[-5:] != ".toml":
-                # take care of input ambiguity
-                if fname_sys[-1:] == "/":
-                    fname_sys = fname_sys[:-1]
-                # don't overwrite trajectories 
-                k = 1
-                while os.path.exists(path_sys + fname_sys):
-                    fname_sys = f"/sys_{self.n_beeds:d}beeds_{self.box_length:.2f}lbox_{self.mobility:.5f}mu_v{k:d}.toml"
-                    k += 1
+        fname_sys = self.create_fname(filetype="config", overwrite=overwrite)
         
-        self.config.fname_sys = fname_sys
+        # NOTE this should be reset after the file is saved 
+        # TODO redo the versions in another way  
+        if overwrite == False:
+            self.config.name_sys += self.version
         
         output = str(self.config)
         output = output.replace("=True", "=true") # for toml formating
@@ -1187,18 +1204,37 @@ class Polymer:
         output = output.replace(" ", "\n")
         output = output.replace("=", " = ")
 
-        f = open(path_sys + fname_sys, "w")
+        f = open(fname_sys, "w")
         f.write(output)
         f.close()
         
+        # remove version again from name_sys string
+        # only in case the save_config method (or any other using self.config.name_sys) is called again
+        if overwrite == False:
+            self.config.name_sys = self.config.name_sys[:-len(self.version)]
+        
+        return
+    
+    def save_bonds(self, overwrite=False):
+        """
+        save bonds to .npy array and
+        """
+        fname_bonds = self.create_fname(filetype="bonds", overwrite=overwrite)
+        
+        np.save(fname_bonds, self.bonds)
+        self.config.bonds = fname_bonds
+    
         return
                 
-    def save_system(self):
+    def save_system(self, overwrite=False):
         """
         saves both trajectory and system config
         """
-        self.save_traj_gro()
-        self.save_config()
+             
+        # todo tidy up save_traj method
+        # self.save_traj_gro()
+        self.save_bonds(overwrite)
+        self.save_config(overwrite)
         return
     
     
@@ -1212,7 +1248,7 @@ class Polymer:
         
         return
     
-    def simulate(self, steps=None):
+    def simulate(self, steps=None, save_sys=True, overwrite_sys=False):
         """
         Simulates the brownian motion of the system with the defined forcefield using forward Euler.
         """
@@ -1221,9 +1257,6 @@ class Polymer:
         # if self.positions is None:
         #     self.create_chain()
         
-        # if self.bonds is None:
-        #     self.get_bonds()
-        
         if steps == None:
             steps = self.config.steps
         
@@ -1231,7 +1264,7 @@ class Polymer:
         
         idx_traj = 1 # because traj[0] is already the initial position
         
-        fname_traj = self.create_fname(filetype="gro")
+        fname_traj = self.create_fname(filetype="trajectory", overwrite=overwrite_sys)
         
         for step in range(1, steps):
             
@@ -1266,7 +1299,7 @@ class Polymer:
                 #     self.trajectory[idx_traj] = self.positions
                     
                 # TODO add condition for direct writing
-                self.write_frame_gro(self.n_beeds, self.positions, idx_traj, fname_traj, comment=f"Traj step {step:d}")
+                self.write_frame_gro(self.n_beeds, self.positions, float(idx_traj), fname_traj, comment=f"traj step {step:d}")
                 idx_traj += 1
             
             # if np.any(self.distances_bonded > 5):
@@ -1278,5 +1311,8 @@ class Polymer:
         t_end = time()
         
         self.config.simulation_time = t_end - t_start
+        
+        if save_sys == True:
+            self.save_system(overwrite=overwrite_sys)
 
         return
