@@ -8,7 +8,7 @@ import datetime
 
 r0 = 2 # beed-beed distance
 amplitude = 5*r0
-lbox_naive = r0*10
+lbox_naive = r0*20
 omega = 2*np.pi/(lbox_naive) # approximate wavelength as the chain length (works only well for long chains)
 
 # create one chain and then copy it
@@ -84,10 +84,11 @@ config_dict = {'steps': 1000000,
                'nchains': 4, 
                'mobility': 1e-03,
                'qbead': 0,
-               'dir_output': '/storage/janmak98/masterthesis/ouput/mesh2',
-               'bonds': list(bonds)}
+               'name_sys': 'mesh_connected',
+               'dir_output': '/storage/janmak98/masterthesis/output/mesh2',
+               'bonds': bonds}
 
-# /storage/janmak98/masterthesis/ouput/mesh2
+# /storage/janmak98/masterthesis/output/mesh2
 # /home/jan/Documents/masterthesis/project/mucus/systems/mesh2
 
 cfg = Config.from_dict(config_dict)
@@ -110,16 +111,8 @@ print("simulation finished ", now_str)
 
 print("simulation time: ", datetime.timedelta(seconds=round(p.config.simulation_time)))
 
-# print("\nsave system...")
-# p.save_system()
-p.save_config()
-
-# os.mkdir(p.config.dir_output+f"/Sq")
-
-# print("\ncalculate structure factor")
-# Q, S_q = p.get_structure_factor_rdf()
-# np.save(p.config.dir_output+f"/Sq/Q.npy", Q)
-# np.save(p.config.dir_output+f"/Sq/Sq.npy", S_q)
+print("\ncalculate structure factor")
+Q, S_q = p.get_structure_factor_rdf()
 
 print("\ndone")
 

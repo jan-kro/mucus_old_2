@@ -70,7 +70,8 @@ config_dict = {'steps': 1000000,
                'nchains': 4, 
                'mobility': 1e-03,
                'qbead': 0,
-               'dir_output': '/storage/janmak98/masterthesis/ouput/mesh',
+               'name_sys': 'mesh_loose',
+               'dir_output': '/storage/janmak98/masterthesis/output/mesh1',
                'bonds': bonds}
 
 cfg = Config.from_dict(config_dict)
@@ -93,16 +94,8 @@ print("simulation finished ", now_str)
 
 print("simulation time: ", datetime.timedelta(seconds=round(p.config.simulation_time)))
 
-# print("\nsave system...")
-# p.save_system()
-p.save_config()
-
-# os.mkdir(p.config.dir_output+f"/Sq")
-
-# print("\ncalculate structure factor")
-# Q, S_q = p.get_structure_factor_rdf()
-# np.save(p.config.dir_output+f"/Sq/Q.npy", Q)
-# np.save(p.config.dir_output+f"/Sq/Sq.npy", S_q)
+print("\ncalculate structure factor")
+Q, S_q = p.get_structure_factor_rdf()
 
 print("\ndone")
 
